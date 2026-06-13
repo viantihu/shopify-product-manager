@@ -1024,14 +1024,14 @@ export default function Index() {
   return (
     <s-page heading="AI Description Formatter">
       <s-section heading="1. Choose a product">
-        <s-stack direction="horizontal" gap="base" align="center">
+        <s-stack direction="inline" gap="base" alignItems="center">
           <s-button onClick={pickProduct}>Select product</s-button>
           {productTitle ? <s-text>{productTitle}</s-text> : null}
         </s-stack>
       </s-section>
 
       <s-section heading="2. Formatting level">
-        <s-stack direction="horizontal" gap="base">
+        <s-stack direction="inline" gap="base">
           {FORMATTING_LEVELS.map((l) => (
             <s-button
               key={l}
@@ -1046,7 +1046,7 @@ export default function Index() {
           variant="primary"
           onClick={runFormat}
           disabled={!productId || busy}
-          {...(busy ? { loading: "" } : {})}
+          loading={busy}
         >
           Format description
         </s-button>
@@ -1057,16 +1057,16 @@ export default function Index() {
           {result.warning ? (
             <s-banner tone="warning">{result.warning}</s-banner>
           ) : null}
-          <s-stack direction="horizontal" gap="large">
-            <s-box flex="1">
+          <s-grid gridTemplateColumns="1fr 1fr" gap="large">
+            <s-grid-item>
               <s-heading>Original</s-heading>
               <HtmlPreview html={result.original} />
-            </s-box>
-            <s-box flex="1">
+            </s-grid-item>
+            <s-grid-item>
               <s-heading>Formatted</s-heading>
               <HtmlPreview html={result.formatted} />
-            </s-box>
-          </s-stack>
+            </s-grid-item>
+          </s-grid>
 
           <s-section heading="What changed">
             {result.changes.length ? (
@@ -1097,13 +1097,15 @@ export default function Index() {
 }
 ```
 
-> Polaris web-component names/props (`s-box` flex, `loading`, list components)
-> should be confirmed against the Polaris web components reference as you build —
-> the structure above is the target. If a specific prop differs in the installed
-> Polaris version, adjust to the documented equivalent; the layout and data flow
-> do not change. The iframe content is already allowlist-sanitized server-side
-> (Task 4) and rendered with `sandbox=""` (no script/form/same-origin), so the
-> preview cannot execute anything.
+> Polaris web-component props above were confirmed against the App Home reference:
+> `s-stack` uses `direction="inline"` and `alignItems` (not `align`); the
+> before/after uses `s-grid gridTemplateColumns="1fr 1fr"` with `s-grid-item`
+> children (`s-box` has no `flex` prop); `loading` is a plain boolean attribute.
+> `@shopify/polaris-types` is installed, so `npm run typecheck` will catch a wrong
+> prop on these custom elements — if it flags one, search the Polaris App Home docs
+> for the correct prop rather than guessing. The iframe content is already
+> allowlist-sanitized server-side (Task 4) and rendered with `sandbox=""` (no
+> script/form/same-origin), so the preview cannot execute anything.
 
 - [ ] **Step 2: Type-check**
 
