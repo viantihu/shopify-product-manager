@@ -404,7 +404,12 @@ export function sanitizeHtml(html: string, allowedTags: string[]): string {
 
 /** Reduce HTML to plain text with collapsed whitespace. */
 export function visibleText(html: string): string {
-  const text = sanitizeHtmlLib(html, {
+  // sanitize-html concatenates content across stripped block tags without
+  // inserting whitespace (e.g. "<h2>A.</h2><p>B</p>" -> "A.B"). Insert a space
+  // before every tag first so block boundaries become word breaks; the trailing
+  // whitespace collapse makes the extra spaces harmless.
+  const spaced = html.replace(/</g, " <");
+  const text = sanitizeHtmlLib(spaced, {
     allowedTags: [],
     allowedAttributes: {},
     nonTextTags: ["script", "style", "textarea", "noscript"],
