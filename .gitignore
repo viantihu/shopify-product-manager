@@ -30,3 +30,6 @@ database.sqlite
 .react-router/
 # Local Claude Code settings (not shared)
 .claude/settings.local.json
+
+# Keep the example template tracked (it has no secrets); real .env stays ignored
+!.env.example
