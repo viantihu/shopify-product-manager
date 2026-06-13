@@ -525,7 +525,8 @@ Your job is to restore presentation structure as clean HTML.
 
 HARD RULE — structure, not substance:
 - You may ONLY add formatting markup, fix paragraph/line breaks, and tidy whitespace.
-- You must NEVER reword, add, remove, or change any word, fact, number, or claim.
+- You must NEVER change the wording: do not reword, add, remove, or alter any
+  word, fact, number, or claim.
 - The visible text a customer reads must be byte-for-byte the same words as the input.
 - If you are unsure whether something is a heading or a list, leave it as a paragraph.
 
