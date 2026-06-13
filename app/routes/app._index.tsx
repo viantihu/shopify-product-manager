@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFetcher } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { FORMATTING_LEVELS, DEFAULT_LEVEL } from "../lib/formatting-levels";
+
+interface FormatResult {
+  original: string;
+  formatted: string;
+  changes: string[];
+  warning: string | null;
+}
 
 /** Render already-sanitized HTML inside a locked-down iframe. */
 function HtmlPreview({ html }: { html: string }) {
@@ -26,24 +33,29 @@ export default function Index() {
   const [productId, setProductId] = useState<string | null>(null);
   const [productTitle, setProductTitle] = useState<string>("");
   const [level, setLevel] = useState<string>(DEFAULT_LEVEL);
+  // Persist the formatted result across save/apply submits (those responses
+  // carry a different intent, so we can't derive the preview from fetcher.data).
+  const [result, setResult] = useState<FormatResult | null>(null);
 
   const data = fetcher.data as
     | {
         ok: boolean;
         intent?: string;
-        result?: {
-          original: string;
-          formatted: string;
-          changes: string[];
-          warning: string | null;
-        };
+        result?: FormatResult;
         roundTripped?: boolean;
+        applied?: boolean;
         error?: string;
       }
     | undefined;
 
   const busy = fetcher.state !== "idle";
-  const result = data?.intent === "format" && data.ok ? data.result : undefined;
+
+  // When a format response arrives, capture it into state.
+  useEffect(() => {
+    if (data?.intent === "format" && data.ok && data.result) {
+      setResult(data.result);
+    }
+  }, [data]);
 
   async function pickProduct() {
     const selected = await shopify.resourcePicker({
@@ -58,16 +70,31 @@ export default function Index() {
 
   function runFormat() {
     if (!productId) return;
+    setResult(null); // drop any prior preview while the new one is generated
     fetcher.submit(
       { intent: "format", productId, level },
       { method: "post", action: "/app/format" },
     );
   }
 
-  function save() {
+  function saveDraft() {
     if (!productId || !result) return;
     fetcher.submit(
       { intent: "save", productId, formattedHtml: result.formatted },
+      { method: "post", action: "/app/format" },
+    );
+  }
+
+  function applyLive() {
+    if (!productId || !result) return;
+    // Overwrites the customer-facing description — confirm before doing it.
+    const ok = window.confirm(
+      "Replace the live product description with this formatted version? " +
+        "This overwrites the current description shown to customers.",
+    );
+    if (!ok) return;
+    fetcher.submit(
+      { intent: "apply", productId, formattedHtml: result.formatted },
       { method: "post", action: "/app/format" },
     );
   }
@@ -82,25 +109,27 @@ export default function Index() {
       </s-section>
 
       <s-section heading="2. Formatting level">
-        <s-stack direction="inline" gap="base">
-          {FORMATTING_LEVELS.map((l) => (
-            <s-button
-              key={l}
-              variant={l === level ? "primary" : "secondary"}
-              onClick={() => setLevel(l)}
-            >
-              {l}
-            </s-button>
-          ))}
+        <s-stack direction="block" gap="base" alignItems="start">
+          <s-stack direction="inline" gap="base">
+            {FORMATTING_LEVELS.map((l) => (
+              <s-button
+                key={l}
+                variant={l === level ? "primary" : "secondary"}
+                onClick={() => setLevel(l)}
+              >
+                {l}
+              </s-button>
+            ))}
+          </s-stack>
+          <s-button
+            variant="primary"
+            onClick={runFormat}
+            disabled={!productId || busy}
+            loading={busy}
+          >
+            Format description
+          </s-button>
         </s-stack>
-        <s-button
-          variant="primary"
-          onClick={runFormat}
-          disabled={!productId || busy}
-          loading={busy}
-        >
-          Format description
-        </s-button>
       </s-section>
 
       {result ? (
@@ -131,16 +160,37 @@ export default function Index() {
             )}
           </s-section>
 
-          <s-button variant="primary" onClick={save} disabled={busy}>
-            Save formatted draft
-          </s-button>
-          {data?.intent === "save" && data.ok ? (
-            <s-banner tone={data.roundTripped ? "success" : "critical"}>
-              {data.roundTripped
-                ? "Saved to draft metafield and verified round trip."
-                : "Saved, but the read-back did not match."}
-            </s-banner>
-          ) : null}
+          <s-stack direction="block" gap="base" alignItems="start">
+            <s-text type="strong">Choose what to do with this version:</s-text>
+            <s-stack direction="inline" gap="base">
+              <s-button variant="secondary" onClick={saveDraft} disabled={busy}>
+                Save as draft
+              </s-button>
+              <s-button variant="primary" onClick={applyLive} disabled={busy}>
+                Apply to live description
+              </s-button>
+            </s-stack>
+            <s-text color="subdued">
+              Draft saves to a metafield for review and leaves the live
+              description untouched. Apply overwrites the customer-facing
+              description.
+            </s-text>
+
+            {data?.intent === "save" && data.ok ? (
+              <s-banner tone={data.roundTripped ? "success" : "critical"}>
+                {data.roundTripped
+                  ? "Saved to the draft metafield and verified the round trip. The live description is unchanged."
+                  : "Saved, but the read-back did not match."}
+              </s-banner>
+            ) : null}
+            {data?.intent === "apply" && data.ok ? (
+              <s-banner tone={data.applied ? "success" : "critical"}>
+                {data.applied
+                  ? "Applied to the live product description and verified."
+                  : "Update sent, but the saved description did not match."}
+              </s-banner>
+            ) : null}
+          </s-stack>
         </s-section>
       ) : null}
     </s-page>

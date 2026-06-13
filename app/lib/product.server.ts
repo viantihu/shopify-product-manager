@@ -93,3 +93,80 @@ export async function saveDraftAndReadBack(
   const readBody = await read.json();
   return readBody.data.product.metafield?.value ?? null;
 }
+
+/**
+ * Apply formatted HTML to the LIVE product description (productUpdate). This
+ * overwrites the customer-facing description — the UI gates it behind an explicit
+ * confirm. Returns the persisted descriptionHtml so the caller can verify.
+ */
+export async function applyToDescription(
+  admin: AdminGraphql,
+  productId: string,
+  formattedHtml: string,
+): Promise<string> {
+  const res = await admin(
+    `#graphql
+    mutation ApplyDescription($product: ProductUpdateInput!) {
+      productUpdate(product: $product) {
+        product { id descriptionHtml }
+        userErrors { field message }
+      }
+    }`,
+    {
+      variables: {
+        product: { id: productId, descriptionHtml: formattedHtml },
+      },
+    },
+  );
+  const body = await res.json();
+  const errors = body.data.productUpdate.userErrors;
+  if (errors.length > 0) {
+    throw new Error(`productUpdate failed: ${JSON.stringify(errors)}`);
+  }
+  return body.data.productUpdate.product.descriptionHtml;
+}
+
+/**
+ * Create the draft metafield definition so the saved draft is visible in the
+ * product's Metafields panel in the admin. Idempotent: a "definition already
+ * exists" (TAKEN) error is treated as success, so it is safe to call on every
+ * install via the afterAuth hook.
+ */
+export async function ensureDraftMetafieldDefinition(
+  admin: AdminGraphql,
+): Promise<void> {
+  const res = await admin(
+    `#graphql
+    mutation CreateDraftDefinition($definition: MetafieldDefinitionInput!) {
+      metafieldDefinitionCreate(definition: $definition) {
+        createdDefinition { id }
+        userErrors { field message code }
+      }
+    }`,
+    {
+      variables: {
+        definition: {
+          name: "Formatted description (draft)",
+          namespace: DRAFT_METAFIELD_NAMESPACE,
+          key: DRAFT_METAFIELD_KEY,
+          description:
+            "AI-formatted product description, saved as a draft for review before applying to the live description.",
+          type: "multi_line_text_field",
+          ownerType: "PRODUCT",
+        },
+      },
+    },
+  );
+  const body = await res.json();
+  const errors = body.data.metafieldDefinitionCreate.userErrors as Array<{
+    code?: string;
+    message: string;
+  }>;
+  // TAKEN means the definition already exists from a prior install — that's fine.
+  const blocking = errors.filter((e) => e.code !== "TAKEN");
+  if (blocking.length > 0) {
+    throw new Error(
+      `metafieldDefinitionCreate failed: ${JSON.stringify(blocking)}`,
+    );
+  }
+}

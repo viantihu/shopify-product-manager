@@ -2,7 +2,11 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { isFormattingLevel, DEFAULT_LEVEL } from "../lib/formatting-levels";
 import { formatDescription } from "../lib/format-description.server";
-import { getProduct, saveDraftAndReadBack } from "../lib/product.server";
+import {
+  getProduct,
+  saveDraftAndReadBack,
+  applyToDescription,
+} from "../lib/product.server";
 
 export async function action({ request }: ActionFunctionArgs) {
   const { admin } = await authenticate.admin(request);
@@ -35,6 +39,17 @@ export async function action({ request }: ActionFunctionArgs) {
     );
     const roundTripped = readBack === formattedHtml;
     return { ok: true, intent, roundTripped };
+  }
+
+  if (intent === "apply") {
+    const formattedHtml = String(form.get("formattedHtml") ?? "");
+    const persisted = await applyToDescription(
+      admin.graphql,
+      productId,
+      formattedHtml,
+    );
+    const applied = persisted === formattedHtml;
+    return { ok: true, intent, applied };
   }
 
   return { ok: false, error: `Unknown intent: ${intent}` };
