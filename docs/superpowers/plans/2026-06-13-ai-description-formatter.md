@@ -951,7 +951,12 @@ if not, add `<script src="https://cdn.shopify.com/shopifycloud/polaris.js" />`).
 ```tsx
 import { useState } from "react";
 import { useFetcher } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { FORMATTING_LEVELS, DEFAULT_LEVEL } from "../lib/formatting-levels";
+
+// NOTE: import useAppBridge even beyond getting the `shopify` object — the
+// @shopify/app-bridge-react import registers the JSX types for App Bridge web
+// components (s-app-nav) used by app.tsx. Dropping it regresses app.tsx's typecheck.
 
 /** Render already-sanitized HTML inside a locked-down iframe. */
 function HtmlPreview({ html }: { html: string }) {
@@ -971,6 +976,7 @@ function HtmlPreview({ html }: { html: string }) {
 }
 
 export default function Index() {
+  const shopify = useAppBridge();
   const fetcher = useFetcher();
   const [productId, setProductId] = useState<string | null>(null);
   const [productTitle, setProductTitle] = useState<string>("");
@@ -995,7 +1001,7 @@ export default function Index() {
   const result = data?.intent === "format" && data.ok ? data.result : undefined;
 
   async function pickProduct() {
-    const selected = await (window as any).shopify.resourcePicker({
+    const selected = await shopify.resourcePicker({
       type: "product",
       action: "select",
     });
