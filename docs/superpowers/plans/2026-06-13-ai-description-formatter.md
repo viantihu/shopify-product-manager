@@ -163,6 +163,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["app/**/*.test.ts"],
+    // Vitest 4 exits non-zero when no test files match — keep the script green
+    // until the first test exists.
+    passWithNoTests: true,
   },
 });
 ```
@@ -833,7 +836,7 @@ export async function saveDraftAndReadBack(
 
 - [ ] **Step 2: Type-check**
 
-Run: `npx tsc --noEmit`
+Run: `npm run typecheck`
 Expected: no type errors in `product.server.ts`. (If the template ships a
 different type for the admin client, adjust the `AdminGraphql` signature to match;
 the shape — a function taking a query string and `{ variables }` — is stable.)
@@ -907,7 +910,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 - [ ] **Step 2: Type-check**
 
-Run: `npx tsc --noEmit`
+Run: `npm run typecheck`
 Expected: no type errors.
 
 - [ ] **Step 3: Commit**
@@ -1098,7 +1101,7 @@ export default function Index() {
 
 - [ ] **Step 2: Type-check**
 
-Run: `npx tsc --noEmit`
+Run: `npm run typecheck`
 Expected: no type errors. (The `window.shopify` cast to `any` avoids needing the
 App Bridge global types for the POC.)
 
