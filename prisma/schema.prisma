@@ -32,3 +32,42 @@ model Session {
   refreshToken        String?
   refreshTokenExpires DateTime?
 }
+
+model Job {
+  id            String     @id @default(cuid())
+  productId     String
+  shop          String
+  trigger       String
+  status        String     @default("queued")
+  attempts      Int        @default(0)
+  error         String?
+  createdAt     DateTime   @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  inputSnapshot Json?
+  trace         Json?
+  decisions     Decision[]
+}
+
+model Decision {
+  id              String   @id @default(cuid())
+  jobId           String
+  job             Job      @relation(fields: [jobId], references: [id])
+  productId       String
+  recipe          String
+  version         String
+  field           String
+  before          String?
+  after           String
+  agentReason     String
+  gateDecision    String
+  gateReason      String
+  status          String
+  reviewerVerdict String?
+  finalValue      String?
+  createdAt       DateTime @default(now())
+  reviewedAt      DateTime?
+
+  @@index([status])
+  @@index([jobId])
+}
