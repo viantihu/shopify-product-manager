@@ -6,7 +6,6 @@ import {
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
-import { ensureDraftMetafieldDefinition } from "./lib/product.server";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -20,18 +19,8 @@ const shopify = shopifyApp({
   future: {
     expiringOfflineAccessTokens: true,
   },
-  hooks: {
-    afterAuth: async ({ admin }) => {
-      // Create the draft metafield definition on install so the saved draft is
-      // visible in the product's Metafields panel. Idempotent and non-fatal —
-      // never block install if it fails.
-      try {
-        await ensureDraftMetafieldDefinition(admin.graphql);
-      } catch (error) {
-        console.error("Failed to ensure draft metafield definition:", error);
-      }
-    },
-  },
+  // afterAuth intentionally omitted — no install-time setup needed for the
+  // completeness agent (webhooks are declared in shopify.app.toml).
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
