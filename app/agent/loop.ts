@@ -90,8 +90,18 @@ export async function runAgentLoop(args: {
 
     trace.push({ turn: step, toolCalls: turn.toolCalls, results });
     // Feed tool results back so the model can reason on the next turn.
-    messages.push({ role: "assistant", toolCalls: turn.toolCalls });
-    messages.push({ role: "tool", results });
+    messages.push({
+      role: "assistant",
+      content: turn.toolCalls.map((c) => ({ type: "tool_use", id: c.id, name: c.name, input: c.input })),
+    });
+    messages.push({
+      role: "user",
+      content: turn.toolCalls.map((c, i) => ({
+        type: "tool_result",
+        tool_use_id: c.id,
+        content: JSON.stringify(results[i] ?? { ok: true }),
+      })),
+    });
     if (finished) break;
   }
 
