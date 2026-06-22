@@ -116,26 +116,34 @@ export function writeSeo(
   return productUpdate(admin, { id: productId, seo });
 }
 
-/** Update alt text on one product image via its MediaImage id. */
+/**
+ * Update alt text on one product image via its MediaImage id.
+ *
+ * Uses `fileUpdate`: `productUpdateMedia` is deprecated as of API 2025-10 and
+ * will be removed when that version is retired. `fileUpdate` keys off the file's
+ * own id, so `productId` is no longer needed by the mutation; it stays in the
+ * signature for caller stability.
+ */
 export async function writeImageAlt(
   admin: AdminGraphql,
   productId: string,
   mediaId: string,
   alt: string,
 ): Promise<void> {
+  void productId;
   const res = await admin(
     `#graphql
-    mutation SetAlt($productId: ID!, $media: [UpdateMediaInput!]!) {
-      productUpdateMedia(productId: $productId, media: $media) {
-        media { ... on MediaImage { id alt } }
-        mediaUserErrors { field message }
+    mutation SetAlt($files: [FileUpdateInput!]!) {
+      fileUpdate(files: $files) {
+        files { ... on MediaImage { id alt } }
+        userErrors { field message }
       }
     }`,
-    { variables: { productId, media: [{ id: mediaId, alt }] } },
+    { variables: { files: [{ id: mediaId, alt }] } },
   );
   const body = await res.json();
-  const errors = body.data.productUpdateMedia.mediaUserErrors;
+  const errors = body.data.fileUpdate.userErrors;
   if (errors.length > 0) {
-    throw new Error(`productUpdateMedia failed: ${JSON.stringify(errors)}`);
+    throw new Error(`fileUpdate failed: ${JSON.stringify(errors)}`);
   }
 }
