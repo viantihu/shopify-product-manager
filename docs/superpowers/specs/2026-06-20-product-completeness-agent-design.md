@@ -372,9 +372,11 @@ distinct reviewer-agreement signals:
   it is captured distinctly.
 - **Reject** → writes nothing, `status = rejected`, `reviewerVerdict = reject`.
 
-All three go through `apply.ts` (identical before-image capture) and stamp the Decision
-row. This is the entire reviewer-agreement dataset, captured as a byproduct of normal
-review.
+All three reuse `apply.ts`'s field writers (the same write path the gate's auto-applies
+use) and stamp the Decision row. The before-image is **not** re-captured here: it was
+already recorded on the Decision when the change was staged, so the reviewer write reuses
+that stored `before` rather than re-running capture (or the gate) at approval time. This
+is the entire reviewer-agreement dataset, captured as a byproduct of normal review.
 
 **Deliberately not in the UI now** (data seams exist; no screens): trust dashboard,
 rollback button, sampling view for auto-applied decisions.
