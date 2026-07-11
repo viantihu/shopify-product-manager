@@ -198,8 +198,7 @@ are exercised by running the app against a development store, not by unit tests.
 
 The design is shaped by the idea that an agent earns the right to act autonomously not
 because we trust the model in the abstract, but because the harness around it is closed,
-version-controlled, and bounded. The full design rationale and implementation plan live
-in [`docs/superpowers/`](docs/superpowers/).
+version-controlled, and bounded.
 
 ---
 
