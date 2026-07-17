@@ -47,5 +47,7 @@ Branch from fresh `main`; open PRs against `main`; do not commit directly to it.
   tested; live LLM calls are not. Run `npm test` and `npm run typecheck` before
   committing.
 - Schema changes: additive Prisma migrations (`npx prisma migrate dev`).
-- Internal design docs/specs are IP and live OUTSIDE the repo in the gitignored
-  `docs-private/` — never commit them.
+- Internal design docs/specs are IP and live outside version control, in
+  `docs-private/` at the repo root (gitignored via `/docs-private/`) — never
+  commit them. Write new specs to `docs-private/specs/`, plans to
+  `docs-private/plans/`.

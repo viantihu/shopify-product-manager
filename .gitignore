@@ -33,5 +33,8 @@ database.sqlite
 .cursor/
 .gemini/
 
+# Internal design docs and plans (IP — never committed to the public repo)
+/docs-private/
+
 # Keep the example template tracked (it has no secrets); real .env stays ignored
 !.env.example
