@@ -32,6 +32,11 @@ describe("autonomy gate", () => {
     }
   });
 
+  it("stages the content-rewriter via default-deny (words changed)", () => {
+    const result = gate({ ...base, recipe: "content-rewriter", textPreserved: false });
+    expect(result.decision).toBe("stage");
+  });
+
   it("always returns a human-readable reason", () => {
     expect(gate(base).reason).toMatch(/\S/);
   });

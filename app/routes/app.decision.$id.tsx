@@ -64,6 +64,9 @@ export default function DecisionDetail() {
   const { decision } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
   const isHtml = decision.field === "descriptionHtml";
+  const factCheck = decision.factCheck
+    ? (JSON.parse(decision.factCheck) as { factsPreserved: boolean; addedClaims: string[] })
+    : null;
 
   return (
     <s-page heading={`Review: ${decision.recipe}`}>
@@ -71,6 +74,26 @@ export default function DecisionDetail() {
         <s-text>{decision.agentReason}</s-text>
         <s-text color="subdued">Gate: {decision.gateReason}</s-text>
       </s-section>
+
+      {factCheck && (
+        <s-section heading="Fact-check">
+          {factCheck.factsPreserved ? (
+            <s-text color="subdued">No added claims detected. The rewrite uses only facts from the original.</s-text>
+          ) : (
+            <s-stack direction="block" gap="base">
+              <s-badge tone="critical">Fabrication flagged</s-badge>
+              <s-text>
+                The fact-check found claims in the rewrite that the original never
+                states. Review each before approving; use edit to strip a claim
+                and keep the rest.
+              </s-text>
+              {factCheck.addedClaims.map((claim, i) => (
+                <s-text key={i}>• {claim}</s-text>
+              ))}
+            </s-stack>
+          )}
+        </s-section>
+      )}
 
       <s-section heading="Before / after">
         <s-grid gridTemplateColumns="1fr 1fr" gap="large">

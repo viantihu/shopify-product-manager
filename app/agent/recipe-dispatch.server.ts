@@ -2,6 +2,7 @@
 import type { ProductSnapshot } from "../lib/product.server";
 import type { RecipeProposal } from "../recipes/types";
 import * as fmt from "../recipes/format-description";
+import * as rewrite from "../recipes/content-rewriter";
 import * as type from "../recipes/infer-product-type";
 import * as seo from "../recipes/generate-seo-meta";
 import * as alt from "../recipes/suggest-image-alt-text";
@@ -17,6 +18,11 @@ export const runRecipe = {
       level,
     });
   },
+  "rewrite-description": (p: ProductSnapshot) =>
+    rewrite.run({
+      description: p.descriptionHtml,
+      context: { title: p.title, productType: p.productType, vendor: p.vendor },
+    }),
   "infer-product-type": (p: ProductSnapshot) =>
     type.run({ title: p.title, description: p.descriptionHtml, vendor: p.vendor }),
   "generate-seo-meta": (p: ProductSnapshot) =>

@@ -8,4 +8,7 @@ export interface RecipeProposal {
   after: string;        // proposed value (JSON-encoded for structured fields like seo / imageAltText)
   agentReason: string;  // short human-readable rationale
   textPreserved: boolean; // gate factor; recipes that don't transform prose set true
+  // Recorded verdict from the content-rewriter's second-pass fact-check. Data
+  // for the reviewer (and a future trust report card), never a gate factor.
+  factCheck?: { factsPreserved: boolean; addedClaims: string[] };
 }

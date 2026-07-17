@@ -19,6 +19,7 @@ export interface LoopDeps {
 // Maps the model-facing tool name to the recipe key in deps.runRecipe.
 const RECIPE_TOOL: Record<string, string> = {
   format_description: "format-description",
+  rewrite_description: "rewrite-description",
   infer_product_type: "infer-product-type",
   generate_seo_meta: "generate-seo-meta",
   suggest_image_alt_text: "suggest-image-alt-text",

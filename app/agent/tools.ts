@@ -35,6 +35,12 @@ export const TOOLS: ToolSpec[] = [
     },
   },
   {
+    name: "rewrite_description",
+    description:
+      "Rewrite a description's prose for clarity and quality. Use only when the wording itself is poor (run-ons, grammar errors, incoherent or unprofessional copy), not merely unstructured.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "infer_product_type",
     description: "Infer a product type. Use only when productType is empty.",
     input_schema: { type: "object", properties: {} },

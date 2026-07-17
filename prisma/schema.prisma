@@ -65,6 +65,7 @@ model Decision {
   status          String
   reviewerVerdict String?
   finalValue      String?
+  factCheck       String?   // JSON: { factsPreserved: boolean, addedClaims: string[] }; null for non-rewriter recipes
   createdAt       DateTime @default(now())
   reviewedAt      DateTime?
 
