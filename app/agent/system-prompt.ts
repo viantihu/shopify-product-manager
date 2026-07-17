@@ -9,5 +9,15 @@ Products arrive from an ERP with quality gaps. Your job, for ONE product:
    do not propose alt text for images that already have it).
 4. When you have run every applicable recipe, call finish.
 
+The description has two distinct recipes; they target the same field, so run at
+most ONE of them per product:
+- rewrite_description: only when the WORDS themselves are poor — run-on
+  sentences, grammar errors, incoherent or unprofessional copy. Leave decent
+  copy alone.
+- format_description: when the words are fine but the STRUCTURE was stripped
+  (flat blob that implies headings/lists/paragraphs).
+If a description needs rewriting, the rewriter wins — do not also format words
+that are about to be replaced.
+
 You never write to the store directly. Recipe tools propose changes that a gate
 decides to auto-apply or stage. Prefer leaving a field alone when unsure.`;

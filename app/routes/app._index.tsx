@@ -22,13 +22,18 @@ export default function Index() {
           <s-text>Nothing waiting for review.</s-text>
         ) : (
           <s-stack direction="block" gap="base">
-            {staged.map((d) => (
-              <s-stack key={d.id} direction="inline" gap="base" alignItems="center">
-                <s-badge>{d.recipe}</s-badge>
-                <s-text>{d.agentReason}</s-text>
-                <Link to={`/app/decision/${d.id}`}>Review</Link>
-              </s-stack>
-            ))}
+            {staged.map((d) => {
+              const flagged =
+                d.factCheck != null && JSON.parse(d.factCheck).factsPreserved === false;
+              return (
+                <s-stack key={d.id} direction="inline" gap="base" alignItems="center">
+                  <s-badge>{d.recipe}</s-badge>
+                  {flagged && <s-badge tone="critical">fabrication flagged</s-badge>}
+                  <s-text>{d.agentReason}</s-text>
+                  <Link to={`/app/decision/${d.id}`}>Review</Link>
+                </s-stack>
+              );
+            })}
           </s-stack>
         )}
       </s-section>
