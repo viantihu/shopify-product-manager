@@ -54,6 +54,7 @@ model Decision {
   jobId           String
   job             Job      @relation(fields: [jobId], references: [id])
   productId       String
+  productTitle    String?  // human-readable title captured when the decision was recorded; null for pre-migration rows
   recipe          String
   version         String
   field           String

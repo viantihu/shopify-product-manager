@@ -44,6 +44,7 @@ describe("proposeChange", () => {
     expect(decision.gateDecision).toBe("auto");
     expect(decision.status).toBe("applied");
     expect(decision.before).toBe("old");
+    expect(decision.productTitle).toBe("Bottle");
     expect(d.writers.writeDescription).toHaveBeenCalledWith(
       expect.anything(),
       product.id,
