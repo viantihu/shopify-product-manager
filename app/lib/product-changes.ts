@@ -42,9 +42,20 @@ export interface GroupedDecisions {
 }
 
 /** Pull the numeric id out of a `gid://shopify/Product/123` GraphQL id. */
-function numericProductId(productId: string): string | null {
+export function numericProductId(productId: string): string | null {
   const match = /gid:\/\/shopify\/Product\/(\d+)/.exec(productId);
   return match ? match[1] : null;
+}
+
+/**
+ * Reconstruct the full GraphQL id from a numeric product id. The per-product
+ * review route carries the numeric id in its URL (no slashes to encode); the
+ * loader reconstructs the gid to query Decision rows, whose productId is stored
+ * as the full gid. Returns null for a non-numeric segment so a bad URL 404s
+ * rather than querying a malformed id.
+ */
+export function productGid(numericId: string): string | null {
+  return /^\d+$/.test(numericId) ? `gid://shopify/Product/${numericId}` : null;
 }
 
 /**

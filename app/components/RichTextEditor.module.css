@@ -1,0 +1,85 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid #d9d9d9;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: #f6f6f7;
+}
+
+.button {
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 4px 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: #f0f0f0;
+}
+
+.active {
+  background: #e0e7ff;
+  border-color: #6366f1;
+}
+
+.content {
+  border: 1px solid #d9d9d9;
+  border-radius: 0 0 8px 8px;
+  padding: 12px;
+  min-height: 220px;
+  background: #fff;
+}
+
+/* The editor's editable region. :global because ProseMirror owns this class. */
+.content :global(.ProseMirror) {
+  outline: none;
+  min-height: 200px;
+}
+
+.content :global(.ProseMirror:focus) {
+  outline: none;
+}
+
+.content :global(.ProseMirror h2) {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0.75em 0 0.25em;
+}
+
+.content :global(.ProseMirror h3) {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0.6em 0 0.2em;
+}
+
+.content :global(.ProseMirror p) {
+  margin: 0.4em 0;
+}
+
+.content :global(.ProseMirror ul),
+.content :global(.ProseMirror ol) {
+  padding-left: 1.4em;
+  margin: 0.4em 0;
+}
+
+.content :global(.ProseMirror a) {
+  color: #2563eb;
+  text-decoration: underline;
+}

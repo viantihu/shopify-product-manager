@@ -4,6 +4,8 @@ import {
   productLabel,
   fieldLabel,
   groupDecisionsByProduct,
+  numericProductId,
+  productGid,
   type DecisionView,
 } from "./product-changes";
 
@@ -49,6 +51,23 @@ describe("productLabel", () => {
   });
 });
 
+describe("productGid / numericProductId round-trip", () => {
+  it("reconstructs a gid from a numeric id", () => {
+    expect(productGid("42")).toBe("gid://shopify/Product/42");
+  });
+
+  it("round-trips with numericProductId", () => {
+    const gid = productGid("123")!;
+    expect(numericProductId(gid)).toBe("123");
+  });
+
+  it("returns null for a non-numeric segment so a bad URL 404s", () => {
+    expect(productGid("abc")).toBeNull();
+    expect(productGid("")).toBeNull();
+    expect(productGid("12x")).toBeNull();
+  });
+});
+
 describe("fieldLabel", () => {
   it("maps known logical fields to plain-English labels", () => {
     expect(fieldLabel("descriptionHtml")).toBe("Description");
@@ -76,6 +95,15 @@ describe("groupDecisionsByProduct", () => {
   it("buckets a product with only settled changes into updated", () => {
     const { needsReview, updated } = groupDecisionsByProduct([
       decision({ id: "a", status: "applied" }),
+    ]);
+    expect(needsReview).toHaveLength(0);
+    expect(updated).toHaveLength(1);
+    expect(updated[0].hasStaged).toBe(false);
+  });
+
+  it("treats a superseded change as settled (updated bucket, not needsReview)", () => {
+    const { needsReview, updated } = groupDecisionsByProduct([
+      decision({ id: "a", status: "superseded" }),
     ]);
     expect(needsReview).toHaveLength(0);
     expect(updated).toHaveLength(1);

@@ -29,8 +29,16 @@ Branch from fresh `main`; open PRs against `main`; do not commit directly to it.
 
 - **Recipes are single-field, versioned skills** (`app/recipes/registry.ts`,
   `recipe@version`). They return a `RecipeProposal` and never write to Shopify.
-- **`app/harness/apply.ts` is the only writer.** Every proposal flows through
-  `proposeChange`: before-image → gate → Decision row → maybe write.
+- **`app/harness/apply.ts` is the only writer.** It exposes the two — and only
+  two — paths that write to Shopify, and every write is anchored to a gated
+  `Decision` row:
+  - `proposeChange` (agent auto-apply): before-image → gate → Decision row →
+    maybe write. The gate decides auto-vs-stage.
+  - `applyReviewedDecision` (human review): a reviewer's approve/edit of a staged
+    Decision performs the field write and records the verdict. The gate is NOT
+    re-run — a human verdict is authoritative and is never auto-applied. Route
+    actions (per-decision and per-product review) call this; they never call the
+    `product.server.ts` writers directly.
 - **The gate is default-deny.** Only recipes explicitly trusted to auto-apply
   do so (currently `description-formatter`, and only when `textPreserved` is
   true); everything else stages for human review. New recipes stage until they
