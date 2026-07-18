@@ -19,6 +19,7 @@ export interface DecisionRecord {
   id: string;
   jobId: string;
   productId: string;
+  productTitle: string | null;
   recipe: string;
   version: string;
   field: string;
@@ -114,6 +115,7 @@ export async function proposeChange(args: {
   const decision = await deps.createDecision({
     jobId,
     productId: product.id,
+    productTitle: product.title,
     recipe: proposal.recipe,
     version: proposal.version,
     field: proposal.field,
