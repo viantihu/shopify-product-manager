@@ -75,6 +75,45 @@ goes away on merge; delete your local worktree to keep things tidy.
 
 ---
 
+## Recovering a paused or branchless session
+
+The steps above assume a session starts clean via `new-session.mjs`. A session
+that paused mid-work — especially one still on `main` with **no branch yet** — is
+the highest-risk state: its work isn't isolated, isn't claimed, and any commit it
+makes would hit `main` (the `pre-commit` hook blocks that). Get it onto a branch
+and a claim *before* it does anything else.
+
+**If it has no uncommitted work yet** (just an intent, nothing edited) — start it
+properly:
+```
+node scripts/new-session.mjs <branch>          # isolated worktree off fresh main
+cd .worktrees/<branch>
+node scripts/coord.mjs claim <branch> <files>  # the choke-point files it will touch
+```
+
+**If it already has uncommitted work in the main checkout** — do NOT try to move
+the files by hand. Branch in place so the work travels with you, then claim:
+```
+git switch -c <branch>                          # carries uncommitted changes onto the new branch
+node scripts/coord.mjs claim <branch> <files>
+```
+(Optionally `git stash` first, make a worktree, then `git stash pop` inside it —
+but `git switch -c` in place is simpler and loses nothing.)
+
+**Placeholder claims.** If you know a paused session is working on something but
+it hasn't picked a branch name, you can reserve its files under a provisional
+name (e.g. `feat/suggestion-recipe`) so other sessions steer clear. When the real
+session resumes, `release` the placeholder and re-`claim` under its actual branch
+so the `pre-commit` cross-branch warning matches reality.
+
+**Cross-clone limit.** The claim ledger lives in this repo's shared `.git`, so it
+only coordinates sessions that share it (this checkout + its worktrees). A session
+running from a *separate clone* has its own ledger and can't see these claims —
+coordinate those at the branch/PR layer instead, or bring the session into a
+worktree of this repo.
+
+---
+
 ## Choke-point files (claim these before editing)
 
 Adding a recipe hand-edits several **shared, append-to-one-list** files. Two
