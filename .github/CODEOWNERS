@@ -1,0 +1,5 @@
+# Every PR auto-requests Karvi's review — the human-in-the-loop merge gate that
+# mirrors the app's own autonomy model (nothing lands without review).
+# Once branch protection requires 1 approval, this makes that approver default
+# to the repo owner.
+* @viantihu

@@ -1,0 +1,40 @@
+#!/bin/sh
+# .githooks/pre-push
+# Last gate before code leaves this machine:
+#   1) Never push to main/master directly — open a PR instead.
+#   2) Run typecheck + tests. A red branch never reaches the shared remote, so
+#      a merge can't silently break another session's checkout.
+#
+# git feeds pre-push "<local ref> <local sha> <remote ref> <remote sha>" lines on
+# stdin. We inspect them to catch a push whose TARGET is main even from a
+# differently-named local branch.
+#
+# Enabled via core.hooksPath (scripts/setup-hooks.mjs). Emergency bypass:
+# `git push --no-verify` — discouraged; you are skipping the green-build gate.
+
+# --- 1) block pushes targeting the trunk ---
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main | refs/heads/master)
+      echo "pre-push: refusing to push to '$remote_ref'." >&2
+      echo "  Push a feature branch and open a PR against main instead." >&2
+      exit 1
+      ;;
+  esac
+done
+
+# --- 2) require a green build before publishing the branch ---
+echo "pre-push: running typecheck ..."
+if ! npm run typecheck --silent; then
+  echo "pre-push: typecheck FAILED — fix it or push with --no-verify (discouraged)." >&2
+  exit 1
+fi
+
+echo "pre-push: running tests ..."
+if ! npm test --silent; then
+  echo "pre-push: tests FAILED — fix them or push with --no-verify (discouraged)." >&2
+  exit 1
+fi
+
+echo "pre-push: checks passed."
+exit 0

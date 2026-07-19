@@ -1,0 +1,44 @@
+name: CI
+
+# Runs on every PR and on pushes to main. This is the merge-point backstop:
+# a branch can't be merged (once branch protection requires this check) unless
+# typecheck and tests pass, so a red build never lands on main and can't break
+# another session's checkout.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same branch/PR to save minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22, not 20: a transitive dep (@shopify/polaris-types) requires
+      # Node >=22.18, and .npmrc sets engine-strict=true, so `npm ci` aborts on
+      # Node 20. 22.x satisfies the root engines range and every dependency.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # App code imports @prisma/client; its generated types must exist before
+      # typecheck. (The `prepare` script also runs on `npm ci`, wiring hooks —
+      # harmless in CI.)
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
