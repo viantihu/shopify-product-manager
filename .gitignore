@@ -33,6 +33,10 @@ database.sqlite
 .cursor/
 .gemini/
 
+# Per-session git worktrees (see scripts/new-session.mjs). Each parallel dev
+# session works in its own .worktrees/<branch> folder off the shared .git.
+/.worktrees/
+
 # Internal design docs and plans (IP — never committed to the public repo)
 /docs-private/
 

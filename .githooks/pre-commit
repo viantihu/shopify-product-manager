@@ -1,0 +1,39 @@
+#!/bin/sh
+# .githooks/pre-commit
+# 1) Hard block: never commit directly onto main/master. Feature branches only.
+# 2) Soft warn: if a staged file is claimed by a DIFFERENT branch in the
+#    coordination ledger, name the other owner so you can coordinate before you
+#    clobber their work. Warning only — it never blocks the commit.
+#
+# Enabled via `git config core.hooksPath .githooks` (done by scripts/setup-hooks.mjs
+# on npm install). Bypass in a genuine emergency with `git commit --no-verify`.
+
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+
+# --- 1) block commits on the trunk ---
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  echo "pre-commit: refusing to commit directly on '$branch'." >&2
+  echo "  Create a feature branch:  git switch -c feat/your-thing" >&2
+  echo "  or spin up a worktree:    node scripts/new-session.mjs feat/your-thing" >&2
+  exit 1
+fi
+
+# --- 2) warn on cross-branch claim overlap ---
+# Best-effort: needs node + the coord script. Skip silently if unavailable so
+# the hook never breaks committing.
+if command -v node >/dev/null 2>&1 && [ -f "scripts/coord.mjs" ]; then
+  staged="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)"
+  if [ -n "$staged" ]; then
+    # coord.mjs does the exact-branch comparison and prints "<file>\t<branch>"
+    # only for files claimed by a DIFFERENT branch. Empty output => no conflict.
+    conflicts="$(node scripts/coord.mjs conflicts "$branch" $staged 2>/dev/null)"
+    if [ -n "$conflicts" ]; then
+      echo "pre-commit WARNING: staged files are claimed by other branches:" >&2
+      printf '%s\n' "$conflicts" | sed 's/^/  /' >&2
+      echo "  You are on '$branch'. Coordinate before overwriting their work." >&2
+      echo "  (This is a warning; the commit will proceed.)" >&2
+    fi
+  fi
+fi
+
+exit 0

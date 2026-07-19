@@ -25,6 +25,28 @@ state goes stale easily.
 
 Branch from fresh `main`; open PRs against `main`; do not commit directly to it.
 
+## Multi-session coordination (required)
+
+Several dev sessions run in parallel on one machine. `COORDINATION.md` (repo
+root) holds the runbook, the prioritized backlog, and the session kickoff
+template — read it at the start of a session. In brief:
+
+1. **Own your worktree.** Start with `node scripts/new-session.mjs <branch>` to
+   get an isolated `.worktrees/<branch>` folder off fresh `main`. Never share one
+   working directory between sessions.
+2. **Claim before you edit.** `node scripts/coord.mjs claim <branch> <files>`,
+   especially for the shared choke-point files every recipe touches
+   (`app/recipes/registry.ts`, `app/agent/tools.ts`,
+   `app/agent/recipe-dispatch.server.ts`, `RECIPE_TOOL` in `app/agent/loop.ts`,
+   `app/agent/system-prompt.ts`, `prisma/schema.prisma`). Check
+   `node scripts/coord.mjs status` first; if another branch already claims a
+   choke-point file, coordinate before editing. `release` when done.
+3. **One feature per branch.** Hooks (`.githooks/`, auto-wired by `npm install`)
+   block commits/pushes to `main` and run typecheck + tests before every push.
+4. **GitHub may be unreachable from your environment.** If so, leave the branch
+   committed and ready to push and write the PR body to
+   `docs-private/pr-drafts/<branch>.md`; the user pushes and opens the PR.
+
 ## Architecture invariants
 
 - **Recipes are single-field, versioned skills** (`app/recipes/registry.ts`,
