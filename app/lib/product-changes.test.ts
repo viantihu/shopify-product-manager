@@ -6,6 +6,7 @@ import {
   groupDecisionsByProduct,
   numericProductId,
   productGid,
+  skuLabel,
   type DecisionView,
 } from "./product-changes";
 
@@ -78,6 +79,24 @@ describe("fieldLabel", () => {
 
   it("passes through an unknown field unchanged", () => {
     expect(fieldLabel("mysteryField")).toBe("mysteryField");
+  });
+});
+
+describe("skuLabel", () => {
+  it("returns a single-variant SKU as-is", () => {
+    expect(skuLabel({ sku: "ABC-123", additionalCount: 0 })).toBe("ABC-123");
+  });
+
+  it("appends '+N more' for a multi-variant product", () => {
+    expect(skuLabel({ sku: "ABC-123", additionalCount: 2 })).toBe("ABC-123 +2 more");
+  });
+
+  it("returns empty string when the SKU summary is absent", () => {
+    expect(skuLabel(undefined)).toBe("");
+  });
+
+  it("returns empty string when the product has no SKU", () => {
+    expect(skuLabel({ sku: null, additionalCount: 3 })).toBe("");
   });
 });
 

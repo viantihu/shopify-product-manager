@@ -70,6 +70,60 @@ export async function readProduct(
   };
 }
 
+// SKU lives on variants, not the product. This is the first variant's SKU plus
+// a count of any further variants, keyed by product gid — enough for the index
+// to show "ABC-123 +2 more" without fetching every variant.
+export interface ProductSkuInfo {
+  productId: string;
+  sku: string | null;
+  additionalCount: number;
+}
+
+/**
+ * Bulk-read variant SKUs for a set of products in one query (`nodes(ids:)`).
+ * Returns one entry per resolved product; a product that doesn't resolve, isn't
+ * a Product, or has no variants is simply absent from the result (callers treat
+ * a missing entry as "no SKU"). Empty input short-circuits without a network
+ * call. Reads only the first variant's SKU; `additionalCount` comes from
+ * `variantsCount` so the "+N more" hint is accurate without paging variants.
+ */
+export async function readProductSkus(
+  admin: AdminGraphql,
+  productIds: string[],
+): Promise<ProductSkuInfo[]> {
+  if (productIds.length === 0) return [];
+  const res = await admin(
+    `#graphql
+    query ReadSkus($ids: [ID!]!) {
+      nodes(ids: $ids) {
+        ... on Product {
+          id
+          variantsCount { count }
+          variants(first: 1) { nodes { sku } }
+        }
+      }
+    }`,
+    { variables: { ids: productIds } },
+  );
+  const body = await res.json();
+  const nodes: unknown[] = body.data?.nodes ?? [];
+  const out: ProductSkuInfo[] = [];
+  for (const node of nodes) {
+    const n = node as
+      | { id?: string; variantsCount?: { count?: number }; variants?: { nodes?: { sku?: string | null }[] } }
+      | null;
+    if (!n?.id) continue; // unresolved id or non-Product → skip
+    const total = n.variantsCount?.count ?? 0;
+    const sku = n.variants?.nodes?.[0]?.sku ?? null;
+    out.push({
+      productId: n.id,
+      sku: sku && sku.trim() !== "" ? sku : null,
+      additionalCount: total > 1 ? total - 1 : 0,
+    });
+  }
+  return out;
+}
+
 async function productUpdate(
   admin: AdminGraphql,
   input: Record<string, unknown>,

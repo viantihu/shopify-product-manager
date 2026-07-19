@@ -28,12 +28,23 @@ export interface ProductChange {
   flagged: boolean; // fact-check found claims the original never states
 }
 
+// A product's SKU summary for the index. SKU lives on variants in Shopify, not
+// the product, so `sku` is the first/default variant's SKU and `additionalCount`
+// is how many further variants exist (drives the "+N more" hint). Fetched live
+// from Shopify (see readProductSkus) — never stored — so it may be absent when
+// the fetch is skipped or fails.
+export interface ProductSku {
+  sku: string | null; // first variant's SKU; null when the product has none
+  additionalCount: number; // variants beyond the first; 0 for single-variant
+}
+
 export interface ProductGroup {
   productId: string;
   productTitle: string; // resolved display label; never empty
   adminUrl: string; // "" when productId is malformed → caller renders plain text
   changes: ProductChange[];
   hasStaged: boolean;
+  sku?: ProductSku; // enriched by the loader for the "recently updated" list
 }
 
 export interface GroupedDecisions {
@@ -76,6 +87,19 @@ export function productLabel(productId: string, title: string | null): string {
   if (title && title.trim() !== "") return title;
   const id = numericProductId(productId);
   return id ? `Product ${id}` : "Untitled product";
+}
+
+/**
+ * Format a product's SKU summary for display. Returns "" when there's nothing
+ * useful to show (no SKU fetched, or a product with no SKU at all) so the caller
+ * can omit the line entirely rather than render an empty "SKU:" label. A
+ * multi-variant product appends "+N more" after the first variant's SKU.
+ */
+export function skuLabel(sku: ProductSku | undefined): string {
+  if (!sku || !sku.sku) return "";
+  return sku.additionalCount > 0
+    ? `${sku.sku} +${sku.additionalCount} more`
+    : sku.sku;
 }
 
 /** Plain-English label for a logical field name (what changed on the product). */
