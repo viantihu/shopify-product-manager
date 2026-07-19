@@ -3,6 +3,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { sanitizeHtml } from "../lib/sanitize";
+import {
+  FactCheckLlmSchema,
+  type FactCheckLlmOutput,
+  buildFactCheckPrompt,
+} from "../lib/fact-check";
 import { RECIPES } from "./registry";
 import type { RecipeProposal } from "./types";
 
@@ -11,12 +16,6 @@ export const RewriteLlmSchema = z.object({
   changes: z.array(z.string()),
 });
 export type RewriteLlmOutput = z.infer<typeof RewriteLlmSchema>;
-
-export const FactCheckLlmSchema = z.object({
-  factsPreserved: z.boolean(),
-  addedClaims: z.array(z.string()),
-});
-export type FactCheckLlmOutput = z.infer<typeof FactCheckLlmSchema>;
 
 const ID = "content-rewriter" as const;
 
@@ -61,26 +60,6 @@ Vendor: ${context.vendor}`,
     `DESCRIPTION TO REWRITE:
 ${description}`,
   ].join("\n\n");
-}
-
-export function buildFactCheckPrompt(input: {
-  original: string;
-  rewrite: string;
-}): string {
-  return `You are a fact-checker comparing a product description against its rewrite.
-
-Answer one narrow question: does the REWRITE assert any claim, spec, number,
-feature, or fact that is NOT present in the ORIGINAL? Rephrasing, reordering,
-and tone changes are fine — only ADDED substance counts.
-
-List each added claim in plain language. If nothing was added, report
-factsPreserved true with an empty list.
-
-ORIGINAL:
-${input.original}
-
-REWRITE:
-${input.rewrite}`;
 }
 
 /** Pure: sanitize the rewrite and merge both passes into a RecipeProposal. */

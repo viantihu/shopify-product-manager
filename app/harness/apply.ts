@@ -30,6 +30,7 @@ export interface DecisionRecord {
   gateReason: string;
   status: string;
   factCheck: string | null; // JSON verdict from the content-rewriter; null otherwise
+  coachingNotes: string | null; // JSON string[] from the marketing-optimizer; null otherwise
 }
 
 // The fields proposeChange supplies when recording a decision. Structurally a
@@ -139,6 +140,7 @@ export async function proposeChange(args: {
     gateReason: verdict.reason,
     status: willApply ? "applied" : "staged",
     factCheck: proposal.factCheck ? JSON.stringify(proposal.factCheck) : null,
+    coachingNotes: proposal.coachingNotes ? JSON.stringify(proposal.coachingNotes) : null,
   });
 
   // Auto-write goes through the injected writers. `deps.admin` is required in
