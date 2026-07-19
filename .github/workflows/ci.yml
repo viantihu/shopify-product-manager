@@ -20,9 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 22, not 20: a transitive dep (@shopify/polaris-types) requires
+      # Node >=22.18, and .npmrc sets engine-strict=true, so `npm ci` aborts on
+      # Node 20. 22.x satisfies the root engines range and every dependency.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
