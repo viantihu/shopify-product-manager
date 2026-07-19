@@ -41,6 +41,12 @@ export const TOOLS: ToolSpec[] = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "optimize_marketing_copy",
+    description:
+      "Sharpen a description that is grammatically clean and professional but WEAK as sales copy (dumps features instead of benefits, generic filler like 'high quality', no 'you' voice, buried value proposition). Rewrites toward marketing best practices using only facts already present, and adds reviewer coaching notes for gaps that need merchant input. Do NOT use to fix broken grammar (use rewrite_description) or missing structure (use format_description).",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "infer_product_type",
     description: "Infer a product type. Use only when productType is empty.",
     input_schema: { type: "object", properties: {} },

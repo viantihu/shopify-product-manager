@@ -119,6 +119,9 @@ export default function DecisionDetail() {
   const factCheck = decision.factCheck
     ? (JSON.parse(decision.factCheck) as { factsPreserved: boolean; addedClaims: string[] })
     : null;
+  const coachingNotes = decision.coachingNotes
+    ? (JSON.parse(decision.coachingNotes) as string[])
+    : null;
 
   // Seed the editable draft from the agent's proposed value. State lives here so
   // the reviewer's edits persist across re-renders until they submit.
@@ -153,6 +156,21 @@ export default function DecisionDetail() {
               ))}
             </s-stack>
           )}
+        </s-section>
+      )}
+
+      {coachingNotes && coachingNotes.length > 0 && (
+        <s-section heading="Marketing coaching">
+          <s-text color="subdued">
+            Best practices this description could add, but which need your input.
+            These are NOT part of the suggested copy — the agent never invents
+            them. Add them yourself where they fit.
+          </s-text>
+          <s-stack direction="block" gap="base">
+            {coachingNotes.map((note, i) => (
+              <s-text key={i}>• {note}</s-text>
+            ))}
+          </s-stack>
         </s-section>
       )}
 

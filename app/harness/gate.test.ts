@@ -37,6 +37,11 @@ describe("autonomy gate", () => {
     expect(result.decision).toBe("stage");
   });
 
+  it("stages the marketing-optimizer via default-deny (never auto-applies)", () => {
+    const result = gate({ ...base, recipe: "marketing-optimizer", textPreserved: false });
+    expect(result.decision).toBe("stage");
+  });
+
   it("always returns a human-readable reason", () => {
     expect(gate(base).reason).toMatch(/\S/);
   });

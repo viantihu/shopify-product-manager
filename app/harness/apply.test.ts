@@ -84,6 +84,35 @@ describe("proposeChange", () => {
     expect(decision.gateDecision).toBe("stage");
     expect(d.writers.writeDescription).not.toHaveBeenCalled();
   });
+
+  it("serializes a marketing-optimizer's coaching notes onto the staged decision", async () => {
+    const d = deps();
+    const marketing: RecipeProposal = {
+      recipe: "marketing-optimizer",
+      version: "1",
+      field: "descriptionHtml",
+      after: "<p>You get a warmer coat.</p>",
+      agentReason: "reframed features as benefits",
+      textPreserved: false,
+      factCheck: { factsPreserved: true, addedClaims: [] },
+      coachingNotes: ["No social proof present — a testimonial would help."],
+    };
+    const decision = await proposeChange({ jobId: "job_1", product, proposal: marketing, deps: d });
+    // Staged (default-deny), not written.
+    expect(decision.gateDecision).toBe("stage");
+    expect(d.writers.writeDescription).not.toHaveBeenCalled();
+    // Coaching notes round-trip as a JSON string; factCheck alongside.
+    expect(decision.coachingNotes).toBe(
+      JSON.stringify(["No social proof present — a testimonial would help."]),
+    );
+    expect(decision.factCheck).toBe(JSON.stringify({ factsPreserved: true, addedClaims: [] }));
+  });
+
+  it("leaves coachingNotes null for a recipe that emits none", async () => {
+    const d = deps();
+    const decision = await proposeChange({ jobId: "job_1", product, proposal: fmt, deps: d });
+    expect(decision.coachingNotes).toBeNull();
+  });
 });
 
 function reviewDeps(overrides: Partial<ReviewDeps> = {}): ReviewDeps {
