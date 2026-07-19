@@ -3,19 +3,40 @@ import { useLoaderData, Link } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { listStagedAndApplied } from "../harness/decisions.server";
+import { readProductSkus } from "../lib/product.server";
 import {
   fieldLabel,
   groupDecisionsByProduct,
+  numericProductId,
+  skuLabel,
   type ProductGroup,
 } from "../lib/product-changes";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  await authenticate.admin(request);
+  const { admin } = await authenticate.admin(request);
   const decisions = await listStagedAndApplied();
   // The index is organized around the product that changed, not the recipe that
   // ran. Fold the flat decision list into per-product groups here so the
   // component just renders.
-  return groupDecisionsByProduct(decisions);
+  const grouped = groupDecisionsByProduct(decisions);
+
+  // Enrich the "recently updated" products with their variant SKUs. SKU isn't
+  // stored anywhere (see product-changes.ts), so it's fetched live. This is a
+  // display nicety: if Shopify is slow or errors, degrade to no-SKU rather than
+  // failing the whole home page.
+  const updatedIds = grouped.updated.map((g) => g.productId);
+  try {
+    const skus = await readProductSkus(admin.graphql, updatedIds);
+    const byId = new Map(skus.map((s) => [s.productId, s]));
+    grouped.updated = grouped.updated.map((g) => {
+      const s = byId.get(g.productId);
+      return s ? { ...g, sku: { sku: s.sku, additionalCount: s.additionalCount } } : g;
+    });
+  } catch {
+    // Leave groups un-enriched; the UI omits the SKU line when absent.
+  }
+
+  return grouped;
 }
 
 function ProductTitle({ group }: { group: ProductGroup }) {
@@ -38,21 +59,31 @@ export default function Index() {
           <s-text>Nothing waiting for review.</s-text>
         ) : (
           <s-stack direction="block" gap="large">
-            {needsReview.map((group) => (
-              <s-stack key={group.productId} direction="block" gap="small-200">
-                <ProductTitle group={group} />
-                {group.changes
-                  .filter((c) => c.status === "staged")
-                  .map((c) => (
+            {needsReview.map((group) => {
+              // Review is now per product: one composed page for all of a
+              // product's staged changes. Fall back to the per-decision deep
+              // link only if the id can't form a product URL.
+              const numericId = numericProductId(group.productId);
+              const staged = group.changes.filter((c) => c.status === "staged");
+              return (
+                <s-stack key={group.productId} direction="block" gap="small-200">
+                  <s-stack direction="inline" gap="base" alignItems="center">
+                    <ProductTitle group={group} />
+                    {numericId && (
+                      <Link to={`/app/product/${numericId}`}>Review product</Link>
+                    )}
+                  </s-stack>
+                  {staged.map((c) => (
                     <s-stack key={c.id} direction="inline" gap="base" alignItems="center">
                       <s-badge>{fieldLabel(c.field)}</s-badge>
                       {c.flagged && <s-badge tone="critical">fabrication flagged</s-badge>}
                       <s-text color="subdued">{c.agentReason}</s-text>
-                      <Link to={`/app/decision/${c.id}`}>Review</Link>
+                      {!numericId && <Link to={`/app/decision/${c.id}`}>Review</Link>}
                     </s-stack>
                   ))}
-              </s-stack>
-            ))}
+                </s-stack>
+              );
+            })}
           </s-stack>
         )}
       </s-section>
@@ -61,21 +92,49 @@ export default function Index() {
         {updated.length === 0 ? (
           <s-text>No activity yet.</s-text>
         ) : (
-          <s-stack direction="block" gap="large">
-            {updated.map((group) => (
-              <s-stack key={group.productId} direction="block" gap="small-200">
-                <ProductTitle group={group} />
-                {group.changes.map((c) => (
-                  <s-stack key={c.id} direction="inline" gap="base" alignItems="center">
-                    <s-badge tone={c.status === "applied" ? "success" : "neutral"}>
-                      {c.status}
-                    </s-badge>
-                    <s-text>{fieldLabel(c.field)}</s-text>
-                    <s-text color="subdued">{c.agentReason}</s-text>
-                  </s-stack>
-                ))}
-              </s-stack>
-            ))}
+          <s-stack direction="block" gap="small-200">
+            {updated.map((group) => {
+              // Each product is a collapsible accordion: the summary carries the
+              // title + SKU, the body reveals what changed. Native <details> so
+              // it works without client JS and survives SSR. The admin deep-link
+              // lives in the body, not the summary — interactive content (an <a>)
+              // can't legally nest inside <summary>.
+              const sku = skuLabel(group.sku);
+              const changeCount = group.changes.length;
+              return (
+                // Native <details> for free, JS-less collapse. Styling comes only
+                // from s-* components and text: Polaris web components ignore
+                // author CSS (styling is controlled by the merchant's branding
+                // settings), so bold/subdued come from s-text props and the " | "
+                // separators are literal text, not CSS gaps.
+                <details key={group.productId}>
+                  <summary>
+                    <s-text type="strong">{group.productTitle}</s-text>
+                    {sku && <s-text color="subdued">{" | "}SKU: {sku}</s-text>}
+                    <s-text color="subdued">
+                      {" | "}
+                      {changeCount} {changeCount === 1 ? "change" : "changes"}
+                    </s-text>
+                  </summary>
+                  <s-box paddingInlineStart="large" paddingBlockStart="small-200" paddingBlockEnd="base">
+                    <s-stack direction="block" gap="base">
+                      {group.adminUrl && (
+                        <s-link href={group.adminUrl}>View in Shopify admin</s-link>
+                      )}
+                      {group.changes.map((c) => (
+                        <s-stack key={c.id} direction="inline" gap="base" alignItems="center">
+                          <s-badge tone={c.status === "applied" ? "success" : "neutral"}>
+                            {c.status}
+                          </s-badge>
+                          <s-text>{fieldLabel(c.field)}</s-text>
+                          <s-text color="subdued">{c.agentReason}</s-text>
+                        </s-stack>
+                      ))}
+                    </s-stack>
+                  </s-box>
+                </details>
+              );
+            })}
           </s-stack>
         )}
       </s-section>

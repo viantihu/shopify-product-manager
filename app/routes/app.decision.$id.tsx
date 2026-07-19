@@ -4,8 +4,9 @@ import { useLoaderData, useFetcher, redirect } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { getDecision } from "../harness/decisions.server";
+import { getDecision, updateDecision } from "../harness/decisions.server";
 import * as writers from "../lib/product.server";
+import { applyReviewedDecision } from "../harness/apply";
 import { parseEditable, serializeEditable, type EditDraft } from "../lib/decision-edit";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -26,38 +27,27 @@ export async function action({ request, params }: ActionFunctionArgs) {
   // reviewers, refresh) must not re-write the product or re-stamp the verdict.
   if (decision.status !== "staged") return redirect("/app");
 
-  let finalValue: string | null = null;
-  let status = "rejected";
-
-  if (verdict !== "reject") {
-    finalValue =
-      verdict === "edit" && editedValue != null
-        ? String(editedValue)
-        : decision.after;
-    status = verdict === "edit" ? "edited" : "approved";
-
-    // Write through the same field writers the gate uses.
-    switch (decision.field) {
-      case "descriptionHtml":
-        await writers.writeDescription(admin.graphql, decision.productId, finalValue);
-        break;
-      case "productType":
-        await writers.writeProductType(admin.graphql, decision.productId, finalValue);
-        break;
-      case "seo":
-        await writers.writeSeo(admin.graphql, decision.productId, JSON.parse(finalValue));
-        break;
-      case "imageAltText": {
-        const { mediaId, alt } = JSON.parse(finalValue);
-        await writers.writeImageAlt(admin.graphql, decision.productId, mediaId, alt);
-        break;
-      }
-    }
+  // Reject performs no write, so it stays inline — it never touched a writer.
+  if (verdict === "reject") {
+    await db.decision.update({
+      where: { id: decision.id },
+      data: { status: "rejected", reviewerVerdict: "reject", reviewedAt: new Date() },
+    });
+    return redirect("/app");
   }
 
-  await db.decision.update({
-    where: { id: decision.id },
-    data: { status, reviewerVerdict: verdict, finalValue, reviewedAt: new Date() },
+  // Approve/edit write through the single human-review funnel in apply.ts, which
+  // performs the field write AND records the verdict — the same helper the
+  // per-product review page uses, so this route no longer writes to Shopify
+  // directly.
+  const finalValue =
+    verdict === "edit" && editedValue != null ? String(editedValue) : decision.after;
+  await applyReviewedDecision({
+    decision,
+    verdict: verdict === "edit" ? "edit" : "agree",
+    finalValue,
+    reviewedAt: new Date(),
+    deps: { writers, updateDecision, admin: admin.graphql },
   });
   return redirect("/app");
 }
