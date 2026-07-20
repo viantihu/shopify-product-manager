@@ -1,12 +1,18 @@
 // app/recipes/description-validator.ts
 //
-// Catches a description that describes a DIFFERENT product than its
-// title/type/vendor say — the "sweater description on a snowboard" that a
-// data-migration mismatch can produce. This is the gap the other three
-// description recipes miss entirely: the copy can be grammatically clean,
-// well-structured, and persuasive while being about the wrong product, so
-// rewrite/optimize/format all pass it through (and description-formatter can even
-// auto-apply it). Validation is the safety net in front of them.
+// Catches a description that misrepresents the product, in either of two ways:
+//   (A) WRONG PRODUCT — the copy describes a different product than its
+//       title/type/vendor say (the "sweater description on a snowboard" a
+//       data-migration error produces).
+//   (B) INCOHERENT CLAIM — the copy is about the right product but asserts
+//       something that cannot be true of it: a use, audience, material, or
+//       feature that contradicts what the product is (a snowboard described as
+//       "for skiers", a snowboard called "machine washable").
+// Both are the gap the other three description recipes miss entirely: the copy
+// can be grammatically clean, well-structured, and persuasive while being wrong
+// on the facts, so rewrite/optimize/format all pass it through (rewrite even
+// preserves the false claim as content, and description-formatter can auto-apply
+// it). Validation is the fact-level safety net in front of them.
 //
 // UNLIKE every other recipe, this one is a DETECTOR, not a transformer. On a
 // mismatch it has nothing correct to write — the agent cannot know the true
@@ -26,13 +32,13 @@ import { RECIPES } from "./registry";
 import type { RecipeProposal } from "./types";
 
 export const MatchLlmSchema = z.object({
-  // true when the description plausibly describes THIS product; false on a
-  // genuine product mismatch.
+  // true when the description is factually consistent with THIS product; false
+  // on a wrong-product OR incoherent-claim contradiction.
   matches: z.boolean(),
   // One-line human-readable summary of the verdict (shown in the review queue).
   reason: z.string(),
-  // Concrete signals that drove a mismatch verdict (the description mentions X
-  // while the title says Y). Empty when matches is true.
+  // Concrete signals that drove a flag (the description asserts X, which cannot
+  // be true of this product / conflicts with title Y). Empty when matches is true.
   evidence: z.array(z.string()),
 });
 export type MatchLlmOutput = z.infer<typeof MatchLlmSchema>;
@@ -61,26 +67,39 @@ export function buildValidatorPrompt(input: {
   const { description, context } = input;
   return [
     `You are a product-data VALIDATOR for an e-commerce storefront. Products
-arrive from an ERP where a data-migration error can attach the WRONG
-description to a product — for example a sweater's description saved on a
-snowboard. Your ONLY job is to judge whether the description below plausibly
-describes the SAME product its title, type, and vendor indicate.
+arrive from an ERP where data errors can leave a description that misrepresents
+the product. Your ONLY job is to judge whether the description below is
+factually consistent with the product its title, type, and vendor indicate.
 
-Judge product IDENTITY, not quality. A description can be vague, badly written,
-or poorly formatted and still be about the right product — that is NOT a
-mismatch (other tools handle quality). Flag a mismatch ONLY when the description
-is about a genuinely different KIND of product than the title/type say (a
-different category, use, or material that could not be the same item).
+Flag a description (matches: false) in EITHER of these cases:
+  (A) WRONG PRODUCT — it describes a genuinely different KIND of product than the
+      title/type say (a different category, use, or material that could not be
+      the same item). Example: title "Snowboard", description about a merino
+      wool sweater.
+  (B) INCOHERENT CLAIM — it is about the right product but asserts something that
+      cannot be true of that product: an audience, use, material, or feature that
+      contradicts what it is. Examples: a snowboard described as "for skiers" or
+      "for surfers"; a snowboard called "machine washable"; a coffee mug that is
+      "waterproof to 200m".
 
-Be conservative. When the description is thin, generic, or merely unclear, treat
-it as a MATCH — do not flag on weak signals. Flag only a clear contradiction.
+Judge FACTUAL CONSISTENCY, not quality. A description can be vague, generic,
+badly written, or poorly formatted and still be factually fine — that is NOT a
+flag (other tools handle wording, persuasion, and structure). Do not flag on
+tone, weak marketing, or missing detail.
+
+Be conservative and specific. Flag only a CLEAR contradiction you can name in
+concrete terms. When the description is merely thin, unclear, or plausibly true,
+treat it as a MATCH. A single wrong word that clearly contradicts the product
+(the snowboard "for skiers") IS a flag; a debatable stylistic choice is not.
 
 Return:
-- matches: true if it plausibly describes this product, false on a clear mismatch.
-- reason: one sentence a store owner can read (what matches or what conflicts).
+- matches: true if it is factually consistent with this product, false on a clear
+  wrong-product OR incoherent-claim contradiction.
+- reason: one sentence a store owner can read (what conflicts, and why it cannot
+  be true of this product).
 - evidence: when matches is false, the concrete conflicting signals (e.g.
-  "description discusses merino wool and layering; title/type say Snowboard").
-  Empty when matches is true.`,
+  "description says 'for avid skiers'; the product is a Snowboard, used by
+  snowboarders"). Empty when matches is true.`,
     `PRODUCT IDENTITY (the source of truth to check against):
 Title: ${context.title}
 Type: ${context.productType}
@@ -106,7 +125,7 @@ export function postProcess(out: MatchLlmOutput): RecipeProposal[] {
       version: RECIPES[ID].version,
       field: "descriptionMatch",
       after: JSON.stringify(finding),
-      agentReason: out.reason || "Description may describe a different product.",
+      agentReason: out.reason || "Description may misrepresent this product.",
       // Not a text transform; this factor is moot for a non-writing recipe, but
       // false keeps it firmly on the default-deny (staged) path.
       textPreserved: false,

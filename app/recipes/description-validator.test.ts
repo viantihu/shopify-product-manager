@@ -28,6 +28,22 @@ describe("description-validator postProcess", () => {
     expect(p.agentReason).toMatch(/sweater/i);
   });
 
+  it("flags an incoherent claim (right product, impossible audience) the same way", () => {
+    // Widened scope: the product IS a snowboard, but the copy says it is for
+    // skiers — a claim that cannot be true of it. Same review-only flag shape as
+    // a wrong-product mismatch; the postProcess path does not distinguish them.
+    const proposals = postProcess({
+      matches: false,
+      reason: "Description says the snowboard is for skiers, which cannot be true of a snowboard.",
+      evidence: ["says 'for avid skiers'", "product is a Snowboard, used by snowboarders"],
+    });
+    expect(proposals).toHaveLength(1);
+    const p = proposals[0];
+    expect(p.field).toBe("descriptionMatch");
+    expect(p.textPreserved).toBe(false);
+    expect(p.agentReason).toMatch(/skiers/i);
+  });
+
   it("round-trips the structured finding through `after`", () => {
     const [p] = postProcess({
       matches: false,
@@ -41,6 +57,6 @@ describe("description-validator postProcess", () => {
 
   it("falls back to a default summary when the model omits a reason", () => {
     const [p] = postProcess({ matches: false, reason: "", evidence: [] });
-    expect(p.agentReason).toMatch(/different product/i);
+    expect(p.agentReason).toMatch(/misrepresent/i);
   });
 });
