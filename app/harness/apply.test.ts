@@ -113,6 +113,28 @@ describe("proposeChange", () => {
     const decision = await proposeChange({ jobId: "job_1", product, proposal: fmt, deps: d });
     expect(decision.coachingNotes).toBeNull();
   });
+
+  it("stages a description-validator mismatch and writes NOTHING", async () => {
+    const d = deps();
+    const mismatch: RecipeProposal = {
+      recipe: "description-validator",
+      version: "1",
+      field: "descriptionMatch",
+      after: JSON.stringify({ reason: "wrong product", evidence: ["merino wool vs Snowboard"] }),
+      agentReason: "Description may describe a different product.",
+      textPreserved: false,
+    };
+    const decision = await proposeChange({ jobId: "job_1", product, proposal: mismatch, deps: d });
+    expect(decision.gateDecision).toBe("stage");
+    expect(decision.status).toBe("staged");
+    // Before-image is the flagged description, so the reviewer sees what was questioned.
+    expect(decision.before).toBe("old");
+    // No writer is ever invoked for a review-only flag.
+    expect(d.writers.writeDescription).not.toHaveBeenCalled();
+    expect(d.writers.writeProductType).not.toHaveBeenCalled();
+    expect(d.writers.writeSeo).not.toHaveBeenCalled();
+    expect(d.writers.writeImageAlt).not.toHaveBeenCalled();
+  });
 });
 
 function reviewDeps(overrides: Partial<ReviewDeps> = {}): ReviewDeps {

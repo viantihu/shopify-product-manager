@@ -63,6 +63,18 @@ export interface AltPiece {
   agentReason: string;
 }
 
+// A review-only flag from the description-validator: the description may describe
+// a DIFFERENT product than its title/type/vendor. It is NOT editable and NEVER
+// written — the reviewer Dismisses it (false alarm) or Acknowledges it (real
+// mismatch, they will fix it manually). `reason`/`evidence` are parsed from the
+// decision's `after` JSON; `before` is the flagged description, shown for context.
+export interface AdvisoryFlag {
+  decisionId: string;
+  reason: string;
+  evidence: string[];
+  before: string | null;
+}
+
 // A decision already settled (applied/edited/approved/rejected/superseded),
 // shown read-only for context — "these recipes also ran." Excludes the rows
 // represented by the editable description piece above.
@@ -81,8 +93,13 @@ export interface ProductReviewComposition {
   productType: FieldPiece | null;
   seo: FieldPiece | null;
   imageAltText: AltPiece[];
+  advisories: AdvisoryFlag[]; // review-only mismatch flags; never written
   settled: SettledChange[];
-  hasStaged: boolean; // any editable piece exists → there is something to review
+  // A writable piece exists → the "Apply to product" button should show.
+  hasWritable: boolean;
+  // Anything for the reviewer to act on: a writable piece OR an advisory flag.
+  // The index/queue keys off this (a product can need review with only a flag).
+  hasStaged: boolean;
 }
 
 // Lower rank wins the description seed: the rewriter's better words beat the
@@ -190,12 +207,33 @@ export function composeProductReview(decisions: ReviewDecision[]): ProductReview
     imageAltText.push({ decisionId: d.id, mediaId, previousAlt, alt, agentReason: d.agentReason });
   }
 
+  // --- descriptionMatch: review-only advisory flags (never written). ---
+  // The finding lives in `after` as JSON.stringify({ reason, evidence }); the
+  // one-line human summary is in agentReason. A malformed row still surfaces —
+  // we fall back to agentReason for the reason and an empty evidence list — so a
+  // reviewer is never silently robbed of a flag.
+  const advisories: AdvisoryFlag[] = [];
+  for (const d of staged) {
+    if (d.field !== "descriptionMatch") continue;
+    let reason = d.agentReason;
+    let evidence: string[] = [];
+    try {
+      const parsed = JSON.parse(d.after) as { reason?: string; evidence?: string[] };
+      if (parsed.reason) reason = parsed.reason;
+      if (Array.isArray(parsed.evidence)) evidence = parsed.evidence;
+    } catch {
+      // keep agentReason fallback
+    }
+    advisories.push({ decisionId: d.id, reason, evidence, before: d.before });
+  }
+
   const description_ = description;
   const editableIds = new Set<string>(
     [
       description_?.decisionId,
       ...(description_?.loserDecisionIds ?? []),
       ...imageAltText.map((a) => a.decisionId),
+      ...advisories.map((a) => a.decisionId),
     ].filter((x): x is string => Boolean(x)),
   );
   const productType = pickField("productType");
@@ -208,8 +246,11 @@ export function composeProductReview(decisions: ReviewDecision[]): ProductReview
     .filter((d) => d.status !== "staged" && !editableIds.has(d.id))
     .map((d) => ({ decisionId: d.id, field: d.field, recipe: d.recipe, status: d.status }));
 
-  const hasStaged =
+  // A writable piece exists → show the "Apply to product" button.
+  const hasWritable =
     description !== null || productType !== null || seo !== null || imageAltText.length > 0;
+  // Something to review = a writable piece OR a review-only advisory flag.
+  const hasStaged = hasWritable || advisories.length > 0;
 
   return {
     productId,
@@ -219,7 +260,9 @@ export function composeProductReview(decisions: ReviewDecision[]): ProductReview
     productType,
     seo,
     imageAltText,
+    advisories,
     settled,
+    hasWritable,
     hasStaged,
   };
 }

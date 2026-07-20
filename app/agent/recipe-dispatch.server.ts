@@ -2,6 +2,7 @@
 import type { ProductSnapshot } from "../lib/product.server";
 import type { RecipeProposal } from "../recipes/types";
 import * as fmt from "../recipes/format-description";
+import * as validate from "../recipes/description-validator";
 import * as rewrite from "../recipes/content-rewriter";
 import * as marketing from "../recipes/marketing-optimizer";
 import * as type from "../recipes/infer-product-type";
@@ -19,6 +20,13 @@ export const runRecipe = {
       level,
     });
   },
+  // Detector: returns [] when the description matches the product, or a single
+  // review-only proposal on a mismatch (mirrors suggest-image-alt-text's shape).
+  "description-validator": (p: ProductSnapshot): Promise<RecipeProposal[]> =>
+    validate.run({
+      description: p.descriptionHtml,
+      context: { title: p.title, productType: p.productType, vendor: p.vendor },
+    }),
   "rewrite-description": (p: ProductSnapshot) =>
     rewrite.run({
       description: p.descriptionHtml,
