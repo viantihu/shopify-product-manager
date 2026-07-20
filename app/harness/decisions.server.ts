@@ -14,11 +14,24 @@ export function createDecision(data: NewDecision): Promise<Decision> {
 // statuses EXCEPT the reserved `rolled_back`. The review UI splits these into
 // "needs review" (staged) vs. settled (everything else) itself. `superseded` is
 // the loser of a two-recipes-one-field composed write (see product-review.ts);
-// it is settled, so it belongs in this visible set.
+// it is settled, so it belongs in this visible set. `dismissed`/`acknowledged`
+// are the two no-write verdicts on a description-validator advisory flag — also
+// settled history, so they stay visible for the future trust report card.
 export function listStagedAndApplied(): Promise<Decision[]> {
   return db.decision.findMany({
     where: {
-      status: { in: ["staged", "applied", "approved", "edited", "rejected", "superseded"] },
+      status: {
+        in: [
+          "staged",
+          "applied",
+          "approved",
+          "edited",
+          "rejected",
+          "superseded",
+          "dismissed",
+          "acknowledged",
+        ],
+      },
     },
     orderBy: { createdAt: "desc" },
     take: 100,

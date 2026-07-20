@@ -27,6 +27,12 @@ export const TOOLS: ToolSpec[] = [
     },
   },
   {
+    name: "validate_description",
+    description:
+      "Check whether the description is factually consistent with THIS product (its title, type, and vendor). Catches two things: (A) a wrong-product description from a data-migration error (a sweater's copy on a snowboard), and (B) an incoherent claim — right product but an audience/use/material/feature that cannot be true of it (a snowboard described as 'for skiers', or 'machine washable'). ALWAYS call this before any description edit. It judges factual consistency, NOT quality/wording/structure. On a flag it marks the product for human review ONLY — it never rewrites — and description edits stay blocked until it passes clean.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "format_description",
     description: "Restore formatting structure to the description. Use when the description is flat/unstructured.",
     input_schema: {

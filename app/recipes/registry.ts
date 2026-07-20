@@ -5,6 +5,10 @@ export const RECIPES = {
   "image-alt-text": { version: "1", field: "imageAltText" },
   "content-rewriter": { version: "1", field: "descriptionHtml" },
   "marketing-optimizer": { version: "1", field: "descriptionHtml" },
+  // Detector, not a transformer: flags a description that describes a DIFFERENT
+  // product than its title/type/vendor. Its field `descriptionMatch` has NO
+  // writer in apply.ts — a mismatch is review-only and never written.
+  "description-validator": { version: "1", field: "descriptionMatch" },
 } as const;
 
 export type RecipeId = keyof typeof RECIPES;

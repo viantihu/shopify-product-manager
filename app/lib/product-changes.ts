@@ -113,6 +113,8 @@ export function fieldLabel(field: string): string {
       return "SEO";
     case "imageAltText":
       return "Image alt text";
+    case "descriptionMatch":
+      return "Description check";
     default:
       return field;
   }

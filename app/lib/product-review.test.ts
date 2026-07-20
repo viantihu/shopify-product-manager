@@ -141,6 +141,68 @@ describe("composeProductReview — non-description fields", () => {
   });
 });
 
+describe("composeProductReview — advisories (description-validator)", () => {
+  const mismatch = (over: Partial<ReviewDecision> = {}) =>
+    dec({
+      id: "adv",
+      field: "descriptionMatch",
+      recipe: "description-validator",
+      agentReason: "Description may describe a different product.",
+      after: JSON.stringify({
+        reason: "Copy describes a merino sweater; product is a snowboard.",
+        evidence: ["merino wool", "machine washable"],
+      }),
+      before: "<p>Soft merino wool sweater.</p>",
+      ...over,
+    });
+
+  it("surfaces a staged mismatch as an advisory, parsing reason/evidence/before", () => {
+    const c = composeProductReview([mismatch()]);
+    expect(c.advisories).toHaveLength(1);
+    expect(c.advisories[0]).toEqual({
+      decisionId: "adv",
+      reason: "Copy describes a merino sweater; product is a snowboard.",
+      evidence: ["merino wool", "machine washable"],
+      before: "<p>Soft merino wool sweater.</p>",
+    });
+  });
+
+  it("needs review on a flag alone: hasStaged true, hasWritable false", () => {
+    const c = composeProductReview([mismatch()]);
+    expect(c.hasStaged).toBe(true);
+    expect(c.hasWritable).toBe(false);
+    // A review-only flag is never an editable description piece.
+    expect(c.description).toBeNull();
+    // Nor is it duplicated into settled context.
+    expect(c.settled.map((s) => s.decisionId)).not.toContain("adv");
+  });
+
+  it("falls back to agentReason when the finding JSON is malformed", () => {
+    const c = composeProductReview([mismatch({ after: "not json" })]);
+    expect(c.advisories).toHaveLength(1);
+    expect(c.advisories[0].reason).toBe("Description may describe a different product.");
+    expect(c.advisories[0].evidence).toEqual([]);
+  });
+
+  it("coexists with a writable piece: both an advisory and a description to apply", () => {
+    const c = composeProductReview([
+      mismatch(),
+      dec({ id: "fmt", recipe: "description-formatter", after: "<h2>Structured</h2>" }),
+    ]);
+    expect(c.advisories).toHaveLength(1);
+    expect(c.description?.decisionId).toBe("fmt");
+    expect(c.hasWritable).toBe(true);
+    expect(c.hasStaged).toBe(true);
+  });
+
+  it("a settled (dismissed/acknowledged) flag is history, not an advisory", () => {
+    const c = composeProductReview([mismatch({ status: "dismissed" })]);
+    expect(c.advisories).toHaveLength(0);
+    expect(c.hasStaged).toBe(false);
+    expect(c.settled.map((s) => s.decisionId)).toContain("adv");
+  });
+});
+
 describe("composeProductReview — shape", () => {
   it("resolves title and admin url from the first decision", () => {
     const c = composeProductReview([dec({})]);
