@@ -16,7 +16,9 @@ product direction lives. Move a row to `In progress` when a session picks it up
 
 | Priority | Feature | Status | Branch | Notes |
 |---|---|---|---|---|
-| — | _(add features here)_ | Idea | — | Strategic detail goes to `docs-private/specs/`, not this table. |
+| P1 | Verify marketing-optimizer triage live | Ready | — | The one unproven link in shipped code: needs the Anthropic API, so it was never run in-sandbox. Run `shopify app dev`, feed a clean-but-weak product (feature dump, "high quality", no "you") and confirm the agent (1) routes to `optimize_marketing_copy` not rewrite/format, (2) stages (no auto-apply), (3) shows the "Marketing coaching" section. Tuning lever if it misroutes: three-way triage wording in `app/agent/system-prompt.ts`. |
+| P2 | Merchant-tunable marketing guidelines | Idea | — | Let marketers tune recipe guidelines to their own brand strategy. `marketing-optimizer` already externalized generic rules to one editable config (`app/lib/marketing-guidelines.ts`) — the first concrete step. Next: a merchant-facing control surface. Scope to `docs-private/specs/` before building. |
+| P3 | Self-registration refactor (kill choke points) | Idea | — | Infra, not a feature. Make each recipe self-register (tool spec + dispatch + `RECIPE_TOOL` + trigger) so the five central files auto-collect them and adding a recipe touches zero shared files. See the "Phase 2" section below for detail. Do when collision pain justifies it — now six recipes are each hand-wired into five shared files. |
 
 Status values: `Idea` → `Ready` (scoped enough to build) → `In progress`
 (a session owns it) → `In review` (PR open) → merged (delete the row).
