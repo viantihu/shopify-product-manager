@@ -20,6 +20,7 @@ export interface LoopDeps {
 // Exported so a wiring test can assert the closed-registry chain stays
 // consistent (every recipe tool routes to a real dispatch handler).
 export const RECIPE_TOOL: Record<string, string> = {
+  validate_description: "description-validator",
   format_description: "format-description",
   rewrite_description: "rewrite-description",
   optimize_marketing_copy: "marketing-optimizer",
@@ -27,6 +28,19 @@ export const RECIPE_TOOL: Record<string, string> = {
   generate_seo_meta: "generate-seo-meta",
   suggest_image_alt_text: "suggest-image-alt-text",
 };
+
+// The three recipe tools that WRITE to the description field. They are blocked
+// until validate_description has run and returned clean (no mismatch) this run —
+// a deterministic backstop so a wrong-product description can never be reformatted
+// or rewritten (and description-formatter can never auto-apply it) before a human
+// resolves the flag. This closes the hole the system prompt alone cannot: the
+// model could skip validation, or emit a write tool in the SAME turn as
+// validate_description. See app/agent/system-prompt.ts for the prompt-level rule.
+export const DESCRIPTION_WRITE_TOOLS = new Set([
+  "format_description",
+  "rewrite_description",
+  "optimize_marketing_copy",
+]);
 
 export interface LoopResult {
   snapshot: ProductSnapshot | null;
@@ -44,6 +58,10 @@ export async function runAgentLoop(args: {
   const trace: LoopResult["trace"] = [];
   const decisions: DecisionRecord[] = [];
   let snapshot: ProductSnapshot | null = null;
+  // Set true once validate_description runs and finds NO mismatch (0 proposals).
+  // A flagged mismatch leaves this false, keeping the description-write tools
+  // blocked. Run-scoped: one product per loop.
+  let descriptionValidatedClean = false;
 
   for (let step = 0; step < deps.maxSteps; step++) {
     const turn = await deps.complete(messages);
@@ -75,11 +93,28 @@ export async function runAgentLoop(args: {
       }
       const recipeKey = RECIPE_TOOL[call.name];
       if (recipeKey && snapshot) {
+        // Guard: description edits are blocked until validation has run clean this
+        // run. Return an error result (same affordance as the mis-sequence case
+        // below) instead of dispatching, so nothing is proposed or written. This
+        // fires even when the write tool is called in the same turn as
+        // validate_description, since the flag only flips after that call runs.
+        if (DESCRIPTION_WRITE_TOOLS.has(call.name) && !descriptionValidatedClean) {
+          results.push({
+            error:
+              "run validate_description first; description edits are blocked until it passes clean",
+          });
+          continue;
+        }
         const out = await deps.runRecipe[recipeKey](snapshot, call.input);
         const proposals = Array.isArray(out) ? out : [out];
         for (const proposal of proposals) {
           const decision = await deps.proposeChange({ jobId, product: snapshot, proposal });
           decisions.push(decision);
+        }
+        // A clean validation (no mismatch proposal) unblocks the description-write
+        // tools; a flag (>=1 proposal) leaves them blocked.
+        if (call.name === "validate_description") {
+          descriptionValidatedClean = proposals.length === 0;
         }
         results.push({ proposed: proposals.length });
         continue;

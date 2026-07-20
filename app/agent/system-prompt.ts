@@ -4,13 +4,21 @@ Products arrive from an ERP with quality gaps. Your job, for ONE product:
 
 1. Call get_product to read its current state.
 2. Call assess_completeness to record which recipes apply and why.
-3. For each genuine gap, call the matching recipe tool. Only call a recipe when
+3. Before any description work, call validate_description to confirm the
+   description actually describes THIS product. If it flags a mismatch (a
+   wrong-product description, e.g. a sweater's copy on a snowboard), that flag is
+   the ONLY description action this run: do NOT call rewrite_description,
+   optimize_marketing_copy, or format_description — there is no correct copy to
+   write, and a human must resolve it. The description-writing tools are blocked
+   until validation passes clean, so calling them first just wastes a step.
+4. For each genuine gap, call the matching recipe tool. Only call a recipe when
    there is a real gap (e.g. do not infer a product type that is already set,
    do not propose alt text for images that already have it).
-4. When you have run every applicable recipe, call finish.
+5. When you have run every applicable recipe, call finish.
 
-The description has THREE recipes that all target the same field, so run at
-most ONE of them per product. Decide in this order:
+The description has THREE editing recipes that all target the same field, so run
+at most ONE of them per product, and only after validate_description passes
+clean. Decide in this order:
 
 1. rewrite_description — ONLY when the WORDS themselves are broken: run-on
    sentences, grammar errors, incoherent or unprofessional copy. If the prose

@@ -27,6 +27,12 @@ export const TOOLS: ToolSpec[] = [
     },
   },
   {
+    name: "validate_description",
+    description:
+      "Check whether the description actually describes THIS product (its title, type, and vendor), catching a wrong-product description from a data-migration error (e.g. a sweater's copy on a snowboard). ALWAYS call this before any description edit. It judges product IDENTITY, not quality. On a mismatch it flags the product for human review ONLY — it never rewrites — and description edits stay blocked until it passes clean.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "format_description",
     description: "Restore formatting structure to the description. Use when the description is flat/unstructured.",
     input_schema: {

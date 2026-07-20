@@ -42,6 +42,16 @@ describe("autonomy gate", () => {
     expect(result.decision).toBe("stage");
   });
 
+  it("stages the description-validator flag via default-deny (never writes)", () => {
+    const result = gate({
+      ...base,
+      recipe: "description-validator",
+      field: "descriptionMatch",
+      textPreserved: false,
+    });
+    expect(result.decision).toBe("stage");
+  });
+
   it("always returns a human-readable reason", () => {
     expect(gate(base).reason).toMatch(/\S/);
   });

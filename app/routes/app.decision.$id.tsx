@@ -36,6 +36,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return redirect("/app");
   }
 
+  // A description-validator flag (field `descriptionMatch`) is review-only and
+  // has NO writer — routing it through applyReviewedDecision would 500 in
+  // performWrite ("No writer for field descriptionMatch"). Its only verdicts are
+  // the two no-write settles, handled inline exactly like reject.
+  if (verdict === "dismissed" || verdict === "acknowledged") {
+    await db.decision.update({
+      where: { id: decision.id },
+      data: { status: verdict, reviewerVerdict: verdict, reviewedAt: new Date() },
+    });
+    return redirect("/app");
+  }
+
   // Approve/edit write through the single human-review funnel in apply.ts, which
   // performs the field write AND records the verdict — the same helper the
   // per-product review page uses, so this route no longer writes to Shopify
@@ -115,6 +127,14 @@ function AfterEditor({
 export default function DecisionDetail() {
   const { decision } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
+
+  // A description-validator flag is review-only: no editor, no write verdicts.
+  // The reviewer Dismisses (false alarm) or Acknowledges (real mismatch, fix it
+  // manually in Shopify) — both settle the row with a no-write status update.
+  if (decision.field === "descriptionMatch") {
+    return <AdvisoryDetail decision={decision} fetcher={fetcher} />;
+  }
+
   const isHtml = decision.field === "descriptionHtml";
   const factCheck = decision.factCheck
     ? (JSON.parse(decision.factCheck) as { factsPreserved: boolean; addedClaims: string[] })
@@ -218,6 +238,79 @@ export default function DecisionDetail() {
             disabled={submitting}
             onClick={() => fetcher.submit({ verdict: "reject" }, { method: "post" })}>
             Reject
+          </s-button>
+        </s-stack>
+      </s-section>
+    </s-page>
+  );
+}
+
+// The advisory-only fallback for a description-validator flag reached via this
+// single-decision route (only when the gid can't form a product URL). It mirrors
+// the advisory section on the per-product page: reason + evidence + the flagged
+// copy, with the two no-write verdicts. There is deliberately no editor and no
+// write path — a mismatch has nothing correct to write.
+function AdvisoryDetail({
+  decision,
+  fetcher,
+}: {
+  decision: Awaited<ReturnType<typeof loader>>["decision"];
+  fetcher: ReturnType<typeof useFetcher>;
+}) {
+  const submitting = fetcher.state !== "idle";
+  let reason = decision.agentReason;
+  let evidence: string[] = [];
+  try {
+    const parsed = JSON.parse(decision.after) as { reason?: string; evidence?: string[] };
+    if (parsed.reason) reason = parsed.reason;
+    if (Array.isArray(parsed.evidence)) evidence = parsed.evidence;
+  } catch {
+    // keep agentReason fallback
+  }
+
+  return (
+    <s-page heading={`Review: ${decision.recipe}`}>
+      <s-section heading="Description check">
+        <s-stack direction="block" gap="base">
+          <s-badge tone="critical">Possible wrong-product description</s-badge>
+          <s-text>{reason}</s-text>
+          {evidence.length > 0 && (
+            <s-stack direction="block" gap="small-200">
+              <s-text color="subdued">What flagged it:</s-text>
+              {evidence.map((e, i) => (
+                <s-text key={i}>• {e}</s-text>
+              ))}
+            </s-stack>
+          )}
+          <s-heading>Flagged description</s-heading>
+          <iframe
+            title="advisory-before"
+            sandbox=""
+            srcDoc={decision.before ?? ""}
+            style={{ width: "100%", minHeight: "200px", border: "1px solid #ddd" }}
+          />
+          <s-text color="subdued">
+            This is not rewritten automatically. Dismiss if it is a false alarm,
+            or acknowledge it and correct the copy in Shopify yourself.
+          </s-text>
+        </s-stack>
+      </s-section>
+
+      <s-section heading="Decide">
+        <s-stack direction="inline" gap="base">
+          <s-button
+            variant="primary"
+            disabled={submitting}
+            onClick={() => fetcher.submit({ verdict: "acknowledged" }, { method: "post" })}
+          >
+            Acknowledge
+          </s-button>
+          <s-button
+            variant="secondary"
+            disabled={submitting}
+            onClick={() => fetcher.submit({ verdict: "dismissed" }, { method: "post" })}
+          >
+            Dismiss
           </s-button>
         </s-stack>
       </s-section>

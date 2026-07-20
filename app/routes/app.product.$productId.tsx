@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useLoaderData, useFetcher, redirect } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
+import db from "../db.server";
 import {
   listDecisionsForProduct,
   updateDecision,
@@ -44,6 +45,30 @@ export async function action({ request, params }: ActionFunctionArgs) {
   if (!productId) throw new Response("Not found", { status: 404 });
 
   const form = await request.formData();
+
+  // --- Advisory verdict (description-validator flag): no-write, inline. ---
+  // Dismiss (false alarm) or Acknowledge (real mismatch, reviewer fixes it
+  // manually) settle the flag without ever calling a writer — mirrors the
+  // `reject` path in app.decision.$id.tsx. Guarded on the field and staged
+  // status so a stale double-submit can't re-stamp or touch another row.
+  const advisoryAction = form.get("advisory_action");
+  if (advisoryAction === "dismissed" || advisoryAction === "acknowledged") {
+    const advisoryId = String(form.get("advisory_id") ?? "");
+    const row = advisoryId ? await db.decision.findUnique({ where: { id: advisoryId } }) : null;
+    if (
+      row &&
+      row.productId === productId &&
+      row.field === "descriptionMatch" &&
+      row.status === "staged"
+    ) {
+      await db.decision.update({
+        where: { id: row.id },
+        data: { status: advisoryAction, reviewerVerdict: advisoryAction, reviewedAt: new Date() },
+      });
+    }
+    return redirect("/app");
+  }
+
   const decisions = await listDecisionsForProduct(productId);
   const c = composeProductReview(decisions);
 
@@ -155,6 +180,10 @@ export default function ProductReview() {
         </s-section>
       )}
 
+      {c.advisories.map((adv) => (
+        <AdvisoryFlag key={adv.decisionId} advisory={adv} />
+      ))}
+
       {c.description && (
         <s-section heading="Description">
           {c.description.factCheck && !c.description.factCheck.factsPreserved && (
@@ -248,7 +277,7 @@ export default function ProductReview() {
         </s-section>
       )}
 
-      {c.hasStaged && (
+      {c.hasWritable && (
         <s-section>
           <s-button variant="primary" disabled={submitting} onClick={submit}>
             Apply to product
@@ -256,6 +285,68 @@ export default function ProductReview() {
         </s-section>
       )}
     </s-page>
+  );
+}
+
+// A review-only mismatch flag from the description-validator. It is never
+// written: the reviewer Dismisses it (false alarm) or Acknowledges it (real
+// mismatch, they'll fix the copy manually). Both settle the flag via a no-write
+// status update in the action, so this uses its own fetcher independent of the
+// main "Apply to product" form.
+function AdvisoryFlag({
+  advisory,
+}: {
+  advisory: { decisionId: string; reason: string; evidence: string[]; before: string | null };
+}) {
+  const fetcher = useFetcher();
+  const submitting = fetcher.state !== "idle";
+  const settle = (action: "dismissed" | "acknowledged") =>
+    fetcher.submit(
+      { advisory_action: action, advisory_id: advisory.decisionId },
+      { method: "post" },
+    );
+  return (
+    <s-section heading="Description check">
+      <s-stack direction="block" gap="base">
+        <s-badge tone="critical">Possible wrong-product description</s-badge>
+        <s-text>{advisory.reason}</s-text>
+        {advisory.evidence.length > 0 && (
+          <s-stack direction="block" gap="small-200">
+            <s-text color="subdued">What flagged it:</s-text>
+            {advisory.evidence.map((e, i) => (
+              <s-text key={i}>• {e}</s-text>
+            ))}
+          </s-stack>
+        )}
+        <s-heading>Flagged description</s-heading>
+        <iframe
+          title={`advisory-before-${advisory.decisionId}`}
+          sandbox=""
+          srcDoc={advisory.before ?? ""}
+          style={{ width: "100%", minHeight: "160px", border: "1px solid #ddd" }}
+        />
+        <s-text color="subdued">
+          This is not rewritten automatically. Dismiss if it is a false alarm, or
+          acknowledge it and correct the copy in Shopify yourself.
+        </s-text>
+        <s-stack direction="inline" gap="base">
+          <s-button
+            variant="primary"
+            disabled={submitting}
+            onClick={() => settle("acknowledged")}
+          >
+            Acknowledge
+          </s-button>
+          <s-button
+            variant="secondary"
+            disabled={submitting}
+            onClick={() => settle("dismissed")}
+          >
+            Dismiss
+          </s-button>
+        </s-stack>
+      </s-stack>
+    </s-section>
   );
 }
 

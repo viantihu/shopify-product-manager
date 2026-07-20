@@ -54,6 +54,13 @@ function beforeImage(product: ProductSnapshot, p: RecipeProposal): string | null
   switch (p.field) {
     case "descriptionHtml":
       return product.descriptionHtml;
+    // Review-only field from the description-validator: the before-image is the
+    // flagged description so the reviewer sees what was questioned. There is
+    // deliberately NO performWrite case for descriptionMatch — a mismatch never
+    // writes, and the default throw in performWrite is the safety net if a write
+    // is ever wrongly attempted.
+    case "descriptionMatch":
+      return product.descriptionHtml;
     case "productType":
       return product.productType;
     case "seo":
