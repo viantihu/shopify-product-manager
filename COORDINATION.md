@@ -8,6 +8,44 @@ shared `.git` dir (see below), not here.
 
 ---
 
+## Who does what (the PM vs dev sessions)
+
+The repo owner (Karvi) is the PM, not a DevOps operator. She sets product
+direction, reviews and merges PRs in the GitHub UI, and runs the occasional
+command a sandboxed session can't (push, `gh pr create`, pulling `main`).
+Everything else — including keeping this file current — is on the dev sessions.
+
+**Every dev session is responsible for:**
+
+- **This file.** Backlog upkeep happens on the branch you're already working
+  on: move your row to `In progress` on pickup, `In review` when your PR draft
+  is written, and delete rows whose PRs have merged. Add rows for new ideas
+  raised mid-session so they aren't lost. Never leave the backlog describing a
+  state that is no longer true.
+- **Start-of-session tidy.** Before building anything: run
+  `node scripts/coord.mjs status` and release claims belonging to merged or
+  abandoned branches, `git worktree remove` worktrees of merged branches, and
+  delete merged backlog rows. Merges happen in the GitHub UI while sessions are
+  asleep, so cleanup always falls to the *next* session — that's you.
+- **The claim ledger.** Claim before editing, release when done. Never end a
+  session with claims still held.
+- **Handing the PM copy-paste blocks.** When an action needs her terminal or
+  the GitHub UI (push a branch, open a PR, pull `main`), end your turn with one
+  exact, complete, copy-paste-ready command block — never a prose description
+  of what to do. The files in `docs-private/pr-drafts/` show the format.
+
+**The PM's part (keep it this short):**
+
+- Merge PRs in the GitHub UI. CI and branch protection already enforce green
+  typecheck + tests and a review there.
+- Paste and run the command blocks sessions hand her.
+- Product judgment: priorities, scope, review verdicts on staged decisions.
+
+Before asking the PM to do anything, ask: can this session do it itself? If
+yes, do it. If no, make her part a single paste.
+
+---
+
 ## Backlog (the vision)
 
 Prioritized. One row per feature. Keep this current — it is the single place the
@@ -16,6 +54,7 @@ product direction lives. Move a row to `In progress` when a session picks it up
 
 | Priority | Feature | Status | Branch | Notes |
 |---|---|---|---|---|
+| P1 | Recipe application UX | Idea | — | The user needs to know which recipes applied when reviewing the product. It's currently not clear to the user what kinds of edits were made to the product upon review. |
 | P1 | Verify marketing-optimizer triage live | Ready | — | The one unproven link in shipped code: needs the Anthropic API, so it was never run in-sandbox. Run `shopify app dev`, feed a clean-but-weak product (feature dump, "high quality", no "you") and confirm the agent (1) routes to `optimize_marketing_copy` not rewrite/format, (2) stages (no auto-apply), (3) shows the "Marketing coaching" section. Tuning lever if it misroutes: three-way triage wording in `app/agent/system-prompt.ts`. |
 | P2 | Merchant-tunable marketing guidelines | Idea | — | Let marketers tune recipe guidelines to their own brand strategy. `marketing-optimizer` already externalized generic rules to one editable config (`app/lib/marketing-guidelines.ts`) — the first concrete step. Next: a merchant-facing control surface. Scope to `docs-private/specs/` before building. |
 | P3 | Self-registration refactor (kill choke points) | Idea | — | Infra, not a feature. Make each recipe self-register (tool spec + dispatch + `RECIPE_TOOL` + trigger) so the five central files auto-collect them and adding a recipe touches zero shared files. See the "Phase 2" section below for detail. Do when collision pain justifies it — now six recipes are each hand-wired into five shared files. |
@@ -26,6 +65,17 @@ Status values: `Idea` → `Ready` (scoped enough to build) → `In progress`
 ---
 
 ## Session runbook
+
+### 0. Tidy before you build
+Merges happen in the GitHub UI while sessions are asleep, so every session
+starts by paying down the last one's exit debt:
+```
+node scripts/coord.mjs status                # release claims of merged/dead branches
+git worktree list                            # remove worktrees of merged branches
+```
+Then check the backlog table above: delete rows whose PRs have merged, and fix
+any row whose status is stale. Commit backlog fixes on your own feature branch
+(docs edits ride along; they don't need their own PR).
 
 ### 1. Start an isolated worktree
 ```
@@ -51,7 +101,10 @@ file you need, coordinate (with the user) before editing; the tool warns but
 won't stop you.
 
 ### 3. Build one feature
-- One feature per branch. No drive-by unrelated edits.
+- One feature per branch. No drive-by unrelated edits (backlog upkeep from
+  step 0 is the one exception).
+- Picking up a backlog row? Set it to `In progress` with your branch name in
+  the same commit series as your work.
 - `npm run typecheck` and `npm test` as you go.
 - New recipe? It **stages** for review — do not special-case the gate
   (`app/harness/gate.ts`). See CLAUDE.md architecture invariants.
@@ -65,15 +118,27 @@ git push -u origin <branch>                  # if you can reach GitHub
 The `pre-push` hook runs typecheck + tests and blocks a red branch from leaving
 the machine. Open a PR against `main` (the template will load). **If GitHub is
 unreachable from your session**, commit everything, leave the branch
-ready-to-push, and write the PR body to `docs-private/pr-drafts/<branch>.md`; the
-user pushes and opens the PR from their own terminal.
+ready-to-push, and write the PR body to `docs-private/pr-drafts/<branch>.md` —
+then end your final message to the PM with the exact commands she pastes:
+
+```
+git push -u origin <branch>
+gh pr create --base main --head <branch> \
+  --title "<title>" \
+  --body-file docs-private/pr-drafts/<branch>.md
+```
+
+Update your backlog row to `In review` before handing off. The PM's only jobs
+are pasting that block and merging in the GitHub UI — don't leave her anything
+else to figure out.
 
 ### 5. After merge
 ```
 git worktree remove .worktrees/<branch>
 ```
-The user enables "auto-delete head branches" on GitHub, so the remote branch
-goes away on merge; delete your local worktree to keep things tidy.
+The remote branch auto-deletes on merge. Delete the local worktree and remove
+the backlog row. If your session is already gone by merge time, the next
+session's step-0 tidy catches both — that's why step 0 exists.
 
 ---
 
@@ -162,14 +227,19 @@ low conflict risk. It's the registration wiring above that collides.
 Paste this to each new session:
 
 > You are one of several parallel dev sessions on this repo. Read
-> `COORDINATION.md` first. Run `node scripts/new-session.mjs <branch>` to get an
-> isolated worktree off fresh `main`, then `cd` into it. Claim the files you'll
-> edit with `node scripts/coord.mjs claim <branch> <files>` (check
+> `COORDINATION.md` first and do its step-0 tidy (release stale claims, remove
+> merged worktrees, prune merged backlog rows). Run
+> `node scripts/new-session.mjs <branch>` to get an isolated worktree off fresh
+> `main`, then `cd` into it. Claim the files you'll edit with
+> `node scripts/coord.mjs claim <branch> <files>` (check
 > `node scripts/coord.mjs status` first — especially for the choke-point files).
-> Build ONLY this feature: **<feature>**. Run `npm run typecheck` and `npm test`,
-> then prepare a PR against `main` and `release` your claim. If you can't reach
-> GitHub, leave the branch ready-to-push and write the PR body to
-> `docs-private/pr-drafts/<branch>.md`.
+> Build ONLY this feature: **<feature>**, and keep the COORDINATION.md backlog
+> row for it current (`In progress` → `In review`). Run `npm run typecheck` and
+> `npm test`, then prepare a PR against `main` and `release` your claim. The
+> user is the PM, not an operator: if you can't reach GitHub, leave the branch
+> ready-to-push, write the PR body to `docs-private/pr-drafts/<branch>.md`, and
+> end your final message with the exact push + `gh pr create` commands for her
+> to paste — never a prose description of what to do.
 
 ---
 
